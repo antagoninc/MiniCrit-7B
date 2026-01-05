@@ -10,7 +10,7 @@ Antagon Inc.
 
 **Date:** January 2026
 
-**Contact:** contact@antagon.ai
+**Contact:** founders@antagon.ai
 
 ---
 
