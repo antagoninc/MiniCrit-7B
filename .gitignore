@@ -1,0 +1,9 @@
+*.tar.gz
+*.arrow
+*.safetensors
+*.pt
+*.bin
+__pycache__/
+wandb/
+minicrit_11.7M_tokenized_QWEN7B/
+
