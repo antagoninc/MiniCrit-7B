@@ -7,6 +7,8 @@ Example:
     >>> from src.data import load_and_prepare_data, tokenize_dataset
     >>> df = load_and_prepare_data("data.csv", sample_size=1000)
     >>> dataset = tokenize_dataset(df, tokenizer, "text", "rebuttal", 512)
+
+Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
 """
 
 from __future__ import annotations

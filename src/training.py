@@ -7,6 +7,8 @@ Example:
     >>> from src.training import create_trainer, ProgressCallback
     >>> trainer = create_trainer(model, tokenizer, dataset, config)
     >>> trainer.train()
+
+Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
 """
 
 from __future__ import annotations

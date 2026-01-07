@@ -9,6 +9,8 @@ Example:
     >>> config = load_config()
     >>> model, tokenizer = load_model_and_tokenizer(config.model_name)
     >>> model = apply_lora(model, config.lora)
+
+Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
 """
 
 from __future__ import annotations

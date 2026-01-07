@@ -8,6 +8,8 @@ Example:
     >>> config = load_config("configs/7b_lora.yaml")
     >>> print(config.model_name)
     'Qwen/Qwen2-7B-Instruct'
+
+Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
 """
 
 from __future__ import annotations

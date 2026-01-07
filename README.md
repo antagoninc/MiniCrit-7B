@@ -67,14 +67,28 @@ Built by [Antagon Inc.](https://antagon.ai), MiniCrit is part of our mission to 
 
 ```bash
 # Clone the repository
-git clone https://github.com/Antagon-Inc/MiniCrit-7B.git
+git clone https://github.com/antagoninc/MiniCrit-7B.git
 cd MiniCrit-7B
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Download model weights
-python download_model.py
+# Run tests (169 tests)
+python tests/test_src_modules.py
+python tests/test_training_utils.py
+
+# Optional: Docker deployment
+docker-compose up -d
+```
+
+### TACC Vista Setup
+
+```bash
+# Setup environment on Vista GH200 nodes
+bash scripts/vista_setup.sh
+
+# Submit training job
+sbatch scripts/train_vista.slurm
 ```
 
 ## Quick Start
@@ -158,38 +172,43 @@ training:
 ```
 MiniCrit-7B/
 ├── README.md
-├── LICENSE
+├── WHITEPAPER.md              # Technical whitepaper
 ├── requirements.txt
-├── setup.py
+├── Dockerfile                 # Docker deployment
+├── docker-compose.yml         # Docker Compose config
 │
-├── minicrit/
+├── src/                       # Core modules
 │   ├── __init__.py
-│   ├── model.py           # Model loading and inference
-│   ├── critique.py        # Critique generation logic
-│   └── utils.py           # Helper functions
+│   ├── config.py              # Configuration management
+│   ├── data.py                # Data loading & preprocessing
+│   ├── model.py               # Model loading & LoRA
+│   ├── training.py            # Training loop & callbacks
+│   ├── evaluation.py          # ROUGE & BERTScore metrics
+│   ├── api.py                 # FastAPI inference server
+│   ├── logging_config.py      # Structured logging
+│   └── budget.py              # Cost tracking
 │
-├── training/
-│   ├── train.py           # Training script
-│   ├── config.yaml        # Training configuration
-│   └── data_utils.py      # Data processing
+├── configs/
+│   ├── 7b_lora.yaml           # Training configuration
+│   └── deepspeed_gh200.json   # DeepSpeed config for Vista
 │
-├── evaluation/
-│   ├── evaluate.py        # Evaluation script
-│   ├── metrics.py         # Custom metrics
-│   └── benchmarks/        # Benchmark datasets
+├── scripts/
+│   ├── train_vista.slurm      # TACC Vista job script
+│   └── vista_setup.sh         # Vista environment setup
 │
-├── analysis/
-│   ├── analyze_training.py
-│   └── visualize_results.py
+├── tests/                     # Test suite (169 tests)
+│   ├── test_api.py
+│   ├── test_budget.py
+│   ├── test_evaluation.py
+│   ├── test_logging_config.py
+│   ├── test_src_modules.py
+│   └── test_training_utils.py
 │
 ├── docs/
-│   ├── WHITEPAPER.md      # Technical whitepaper
-│   ├── API.md             # API documentation
-│   └── TRAINING.md        # Training guide
+│   └── api-reference.md       # API documentation
 │
-└── assets/
-    ├── minicrit_logo.png
-    └── training_curves.png
+├── train_minicrit_7b.py       # Main training script
+└── analyze_local.py           # Training analysis
 ```
 
 ## Evaluation
@@ -214,32 +233,58 @@ python evaluation/evaluate.py \
 
 ## API Usage
 
-### REST API
+### REST API (FastAPI)
 
 ```bash
 # Start the server
-python -m minicrit.server --port 8000
+uvicorn src.api:app --host 0.0.0.0 --port 8000
 
-# Make a request
+# Or with Docker
+docker-compose up -d
+
+# Health check
+curl http://localhost:8000/health
+
+# Generate critique
 curl -X POST http://localhost:8000/critique \
   -H "Content-Type: application/json" \
-  -d '{"rationale": "AAPL long: MACD bullish crossover"}'
-```
-
-### Python SDK
-
-```python
-from minicrit import MiniCritClient
-
-client = MiniCritClient(api_key="your-api-key")
-
-# Single critique
-result = client.critique("TSLA short: RSI overbought at 75")
+  -d '{"rationale": "AAPL long: MACD bullish crossover", "max_tokens": 256}'
 
 # Batch processing
-rationales = ["AAPL long: ...", "META short: ...", "NVDA long: ..."]
-results = client.critique_batch(rationales)
+curl -X POST http://localhost:8000/critique/batch \
+  -H "Content-Type: application/json" \
+  -d '{"rationales": ["AAPL long: ...", "META short: ..."]}'
 ```
+
+### API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | Health check & model status |
+| GET | `/stats` | Server statistics |
+| POST | `/load` | Load/reload model |
+| POST | `/critique` | Generate single critique |
+| POST | `/critique/batch` | Batch critique generation |
+
+### Python Usage
+
+```python
+from src.evaluation import generate_critique
+from src.model import load_model_and_tokenizer
+
+# Load model
+model, tokenizer = load_model_and_tokenizer("Qwen/Qwen2-7B-Instruct")
+
+# Generate critique
+critique = generate_critique(
+    model, tokenizer,
+    rationale="TSLA short: RSI overbought at 75",
+    max_new_tokens=256
+)
+print(critique)
+```
+
+See [docs/api-reference.md](docs/api-reference.md) for full API documentation.
 
 ## Citation
 
