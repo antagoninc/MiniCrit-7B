@@ -1,0 +1,49 @@
+# MiniCrit-7B Docker Compose Configuration
+# Antagon Inc. | CAGE: 17E75
+#
+# Usage:
+#   docker-compose up -d        # Start API server
+#   docker-compose logs -f      # View logs
+#   docker-compose down         # Stop server
+
+version: "3.8"
+
+services:
+  minicrit-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minicrit-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MINICRIT_LOG_LEVEL=INFO
+      - MINICRIT_LOG_JSON=true
+      - MINICRIT_BUDGET_LIMIT=100.0
+    volumes:
+      # Mount model weights from host
+      - ./minicrit_7b_output:/app/model:ro
+      # Mount logs directory
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # Optional: Prometheus metrics exporter
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   ports:
+  #     - "9090:9090"
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
