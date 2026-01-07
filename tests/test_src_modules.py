@@ -216,6 +216,89 @@ class TestValidateDataset:
         assert validate_dataset(dataset) is False
 
 
+class TestDataDeduplication:
+    """Tests for data deduplication functions."""
+
+    def test_compute_text_hash(self) -> None:
+        """Test hash computation."""
+        from src.data import compute_text_hash
+        hash1 = compute_text_hash("hello world")
+        hash2 = compute_text_hash("hello world")
+        hash3 = compute_text_hash("different text")
+        assert hash1 == hash2
+        assert hash1 != hash3
+
+    def test_hash_normalization(self) -> None:
+        """Test that hashes are normalized."""
+        from src.data import compute_text_hash
+        # Multiple spaces should be normalized
+        hash1 = compute_text_hash("hello  world")
+        hash2 = compute_text_hash("hello world")
+        assert hash1 == hash2
+
+    def test_hash_case_insensitive(self) -> None:
+        """Test case insensitivity."""
+        from src.data import compute_text_hash
+        hash1 = compute_text_hash("Hello World")
+        hash2 = compute_text_hash("hello world")
+        assert hash1 == hash2
+
+
+class TestRebuttalLengthValidation:
+    """Tests for rebuttal length validation."""
+
+    def test_min_word_constant(self) -> None:
+        """Test MIN_REBUTTAL_WORDS constant."""
+        from src.data import MIN_REBUTTAL_WORDS
+        assert MIN_REBUTTAL_WORDS == 50
+
+    def test_validate_length_accepts_long(self) -> None:
+        """Test that long rebuttals pass."""
+        from src.data import validate_rebuttal_length
+        df = pd.DataFrame({
+            "text": ["input"],
+            "rebuttal": ["word " * 60]  # 60 words
+        })
+        result = validate_rebuttal_length(df, "rebuttal", min_words=50)
+        assert len(result) == 1
+
+    def test_validate_length_rejects_short(self) -> None:
+        """Test that short rebuttals are filtered."""
+        from src.data import validate_rebuttal_length
+        df = pd.DataFrame({
+            "text": ["input1", "input2"],
+            "rebuttal": ["word " * 10, "word " * 60]  # 10 and 60 words
+        })
+        result = validate_rebuttal_length(df, "rebuttal", min_words=50)
+        assert len(result) == 1
+
+
+class TestTrainValSplit:
+    """Tests for train/validation split."""
+
+    def test_split_creates_two_sets(self) -> None:
+        """Test that split creates train and val sets."""
+        from src.data import create_train_val_split
+        df = pd.DataFrame({
+            "text": [f"text{i}" for i in range(1000)],
+            "rebuttal": [f"rebuttal{i}" for i in range(1000)]
+        })
+        train_df, val_df = create_train_val_split(df, val_ratio=0.1)
+        assert len(train_df) == 900
+        assert len(val_df) == 100
+
+    def test_split_minimum_validation(self) -> None:
+        """Test minimum validation set size (hardcoded to 100)."""
+        from src.data import create_train_val_split
+        df = pd.DataFrame({
+            "text": [f"text{i}" for i in range(200)],
+            "rebuttal": [f"rebuttal{i}" for i in range(200)]
+        })
+        # With 5% of 200 = 10, but minimum is 100 (hardcoded)
+        train_df, val_df = create_train_val_split(df, val_ratio=0.05)
+        assert len(val_df) == 100
+
+
 def run_all_tests() -> bool:
     """Run all tests and report results."""
     import traceback
@@ -227,6 +310,9 @@ def run_all_tests() -> bool:
         TestFindColumns,
         TestFindLatestCheckpoint,
         TestValidateDataset,
+        TestDataDeduplication,
+        TestRebuttalLengthValidation,
+        TestTrainValSplit,
     ]
 
     passed = 0

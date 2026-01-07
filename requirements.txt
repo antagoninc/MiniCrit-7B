@@ -23,6 +23,15 @@ tokenizers>=0.15.0,<1.0.0
 # Acceleration
 accelerate>=0.25.0,<1.0.0
 
+# API server
+fastapi>=0.109.0,<1.0.0
+uvicorn>=0.27.0,<1.0.0
+pydantic>=2.5.0,<3.0.0
+
+# Evaluation metrics
+rouge-score>=0.1.2,<1.0.0
+bert-score>=0.3.13,<1.0.0
+
 # Optional: For faster attention (if using flash-attn)
 # flash-attn>=2.4.0,<3.0.0
 
