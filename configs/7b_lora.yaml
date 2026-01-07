@@ -1,0 +1,66 @@
+# MiniCrit-7B LoRA Training Configuration
+# Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
+#
+# This configuration is optimized for training on NVIDIA H100 GPUs.
+# For consumer GPUs (RTX 3090/4090), reduce batch_size to 2.
+# For Mac Studio M2 Ultra, use batch_size: 1-2 with MLX backend.
+
+# Model Configuration
+model:
+  base: Qwen/Qwen2-7B-Instruct
+  # Alternative models:
+  # base: meta-llama/Llama-2-7b-hf
+  # base: mistralai/Mistral-7B-Instruct-v0.2
+
+# LoRA Configuration
+# Lower rank = fewer parameters, faster training, but less capacity
+# Higher rank = more parameters, slower training, but more capacity
+lora:
+  r: 16                    # Rank of low-rank matrices (8, 16, 32, 64)
+  alpha: 32                # Scaling factor, typically 2*r
+  dropout: 0.05            # Dropout for regularization
+  target_modules:
+    - q_proj               # Query projection
+    - k_proj               # Key projection
+    - v_proj               # Value projection
+    - o_proj               # Output projection
+    - gate_proj            # MLP gate (Qwen/Llama style)
+    - up_proj              # MLP up projection
+    - down_proj            # MLP down projection
+  bias: none               # Whether to train biases: none, all, lora_only
+
+# Training Configuration
+training:
+  learning_rate: 2e-4      # Peak learning rate
+  scheduler: cosine        # LR scheduler: cosine, linear, constant
+  warmup_steps: 500        # Linear warmup steps
+  batch_size: 4            # Per-device batch size
+  gradient_accumulation_steps: 8  # Effective batch = 4 * 8 = 32
+  epochs: 1                # Number of epochs
+  max_length: 512          # Maximum sequence length
+
+# Optimizer Configuration
+optimizer:
+  name: adamw_torch        # Optimizer: adamw_torch, adamw_8bit, adafactor
+  weight_decay: 0.01       # L2 regularization
+  max_grad_norm: 1.0       # Gradient clipping
+
+# Checkpointing
+checkpointing:
+  save_steps: 2000         # Save checkpoint every N steps
+  save_total_limit: 3      # Keep only last N checkpoints
+  log_steps: 50            # Log metrics every N steps
+
+# Data Paths
+# Override with environment variables:
+#   MINICRIT_DATA_FILE, MINICRIT_CACHE_DIR, MINICRIT_OUTPUT_DIR
+data:
+  data_file: minicrit_11.7M_CLEAN.csv
+  cache_dir: minicrit_11.7M_tokenized_QWEN7B
+  output_dir: minicrit_7b_output
+
+# Weights & Biases
+# Set WANDB_PROJECT env var or configure here
+wandb:
+  project: minicrit-training
+  # entity: your-team-name  # Optional: W&B team/username

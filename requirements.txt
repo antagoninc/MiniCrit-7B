@@ -1,0 +1,31 @@
+# MiniCrit-7B Training Requirements
+# Antagon Inc. | CAGE: 17E75
+
+# Core ML frameworks
+torch>=2.1.0,<3.0.0
+transformers>=4.36.0,<5.0.0
+datasets>=2.16.0,<3.0.0
+peft>=0.7.0,<1.0.0
+
+# Data processing
+pandas>=2.0.0,<3.0.0
+pyarrow>=14.0.0,<16.0.0
+
+# Monitoring & logging
+wandb>=0.16.0,<1.0.0
+
+# Visualization (for analyze_local.py)
+matplotlib>=3.8.0,<4.0.0
+
+# Tokenizers
+tokenizers>=0.15.0,<1.0.0
+
+# Acceleration
+accelerate>=0.25.0,<1.0.0
+
+# Optional: For faster attention (if using flash-attn)
+# flash-attn>=2.4.0,<3.0.0
+
+# Development dependencies
+ruff>=0.1.0,<1.0.0
+pytest>=7.4.0,<9.0.0
