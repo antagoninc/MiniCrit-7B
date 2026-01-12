@@ -69,6 +69,7 @@ Requires-Dist: mypy>=1.0.0; extra == "dev"
 </p>
 
 <p align="center">
+  <a href="https://pypi.org/project/minicrit/"><img src="https://img.shields.io/pypi/v/minicrit?color=blue&label=PyPI" alt="PyPI"></a>
   <a href="https://huggingface.co/wmaousley/MiniCrit-7B"><img src="https://img.shields.io/badge/🤗%20HuggingFace-MiniCrit--7B-blue" alt="HuggingFace"></a>
   <a href="https://github.com/antagoninc/MiniCrit-7B/actions"><img src="https://img.shields.io/badge/Tests-169%20Passing-brightgreen" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-red" alt="License"></a>
@@ -128,40 +129,70 @@ Your AI Agent → MiniCrit Validation → Safer Decisions
 
 ## 🚀 Quick Start
 
-### Option 1: Python Package
+### Option 1: pip install (Recommended)
 
 ```bash
-pip install torch transformers peft
+pip install minicrit
 ```
 
 ```python
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from peft import PeftModel
+from minicrit import MiniCrit
 
-# Load model
-base = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2-7B-Instruct")
-model = PeftModel.from_pretrained(base, "wmaousley/MiniCrit-7B")
-tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-7B-Instruct")
+# Initialize (downloads model automatically)
+critic = MiniCrit()
 
 # Validate reasoning
-rationale = "Stock will rise because it rose yesterday"
-prompt = f"### Domain: trading\n### Rationale:\n{rationale}\n\n### Critique:\n"
+result = critic.validate(
+    "Stock will rise because it rose yesterday",
+    domain="trading"
+)
 
-inputs = tokenizer(prompt, return_tensors="pt")
-outputs = model.generate(**inputs, max_new_tokens=256)
-critique = tokenizer.decode(outputs[0], skip_special_tokens=True)
+print(result.valid)      # False
+print(result.severity)   # "high" 
+print(result.critique)   # "This reasoning exhibits recency bias..."
+print(result.flags)      # ["overconfidence", "insufficient_evidence"]
 ```
 
-### Option 2: Docker
+### Option 2: CLI
 
 ```bash
+# Single validation
+minicrit "Buy AAPL, 95% confident" --domain trading
+
+# From file
+minicrit --file rationales.txt --output results.json
+
+# JSON output
+minicrit "MACD crossover signals buy" --json
+```
+
+### Installation Extras
+
+```bash
+# Core only
+pip install minicrit
+
+# With MCP server support
+pip install minicrit[mcp]
+
+# With training utilities
+pip install minicrit[training]
+
+# Everything
+pip install minicrit[all]
+```
+
+### Option 3: Docker
+
+```bash
+cd docker
 docker-compose up -d
 curl http://localhost:8000/critique \
   -H "Content-Type: application/json" \
   -d '{"rationale": "Buy signal based on MACD crossover", "domain": "trading"}'
 ```
 
-### Option 3: MCP (Claude Desktop / Claude Code)
+### Option 4: MCP (Claude Desktop / Claude Code)
 
 ```json
 // ~/Library/Application Support/Claude/claude_desktop_config.json
