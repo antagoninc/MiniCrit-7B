@@ -83,8 +83,11 @@ API_KEYS = set(os.environ.get("MINICRIT_API_KEYS", "").split(",")) - {""}
 MASTER_KEY = os.environ.get("MINICRIT_MASTER_KEY", secrets.token_urlsafe(32))
 RATE_LIMIT = int(os.environ.get("MINICRIT_RATE_LIMIT", "60"))  # per minute
 
-# CORS
-CORS_ORIGINS = os.environ.get("MINICRIT_CORS_ORIGINS", "*").split(",")
+# CORS - use configurable origins instead of wildcard
+CORS_ORIGINS = os.environ.get(
+    "MINICRIT_CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000"
+).split(",")
 
 # Logging
 LOG_REQUESTS = os.environ.get("MINICRIT_LOG_REQUESTS", "true").lower() == "true"

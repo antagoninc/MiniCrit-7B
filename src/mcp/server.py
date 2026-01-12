@@ -6,7 +6,7 @@
 # Co-Founder & CTO: Jacqueline Villamor Ousley (Jacque Ousley) TS/SCI
 # ================================================================
 # WATERMARK Layer 1: Antagon Inc. Proprietary
-# WATERMARK Layer 2: MiniCrit MCP Server v1.1
+# WATERMARK Layer 2: MiniCrit MCP Server v1.2
 # WATERMARK Layer 3: Model Context Protocol Implementation
 # WATERMARK Layer 4: Hash SHA256:MCP_LORA_2026
 # WATERMARK Layer 5: Build 20260112
@@ -16,22 +16,22 @@
 MiniCrit MCP Server (LoRA Version)
 
 Loads base model + LoRA adapter for MiniCrit validation.
+Uses thread-safe ModelManager and CritiqueGenerator from core module.
 
 Environment variables:
-    MINICRIT_ADAPTER: LoRA adapter (default: wmaousley/MiniCrit-1.5B)
-    MINICRIT_BASE_MODEL: Base model (default: Qwen/Qwen2-0.5B-Instruct)
+    MINICRIT_ADAPTER: LoRA adapter (default: wmaousley/MiniCrit-7B)
+    MINICRIT_BASE_MODEL: Base model (default: Qwen/Qwen2-7B-Instruct)
     MINICRIT_DEVICE: Device (auto, cuda, mps, cpu)
+    MINICRIT_INFERENCE_TIMEOUT: Inference timeout in seconds (default: 120)
+    MINICRIT_PRELOAD: Set to "true" to preload model on startup
 """
 
 import os
 import sys
 import json
 import logging
-import time
 import asyncio
 from typing import Optional
-from enum import Enum
-from dataclasses import dataclass, asdict
 
 # MCP SDK imports
 try:
@@ -42,27 +42,28 @@ except ImportError:
     print("Error: MCP SDK not installed. Run: pip install mcp", file=sys.stderr)
     sys.exit(1)
 
+# Import from core module
+from src.mcp.core import (
+    ModelManager,
+    CritiqueGenerator,
+    CritiqueResult,
+    GracefulShutdown,
+    ModelLoadError,
+    InferenceTimeoutError,
+    InferenceError,
+    InvalidInputError,
+    DOMAINS,
+    ADAPTER_ID,
+    BASE_MODEL_ID,
+    DEVICE,
+    LOG_LEVEL,
+)
+
 # ================================================================
 # Configuration
 # ================================================================
 
-ADAPTER_ID = os.environ.get("MINICRIT_ADAPTER", "wmaousley/MiniCrit-1.5B")
-BASE_MODEL_ID = os.environ.get("MINICRIT_BASE_MODEL", "Qwen/Qwen2-0.5B-Instruct")
-DEVICE = os.environ.get("MINICRIT_DEVICE", "auto")
-MAX_LENGTH = int(os.environ.get("MINICRIT_MAX_LENGTH", "512"))
-LOG_LEVEL = os.environ.get("MINICRIT_LOG_LEVEL", "INFO")
-
-DOMAINS = [
-    "trading", "finance", "risk_assessment", "resource_allocation",
-    "planning_scheduling", "cybersecurity", "defense", "medical", "general",
-]
-
-class Severity(str, Enum):
-    PASS = "pass"
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
+PRELOAD_MODEL = os.environ.get("MINICRIT_PRELOAD", "false").lower() == "true"
 
 # Logging
 logging.basicConfig(
@@ -73,163 +74,19 @@ logging.basicConfig(
 logger = logging.getLogger("minicrit-mcp")
 
 # ================================================================
-# Model Loading
+# Global Instances (Thread-Safe)
 # ================================================================
 
-_model = None
-_tokenizer = None
-
-def get_model():
-    """Load base model + LoRA adapter."""
-    global _model, _tokenizer
-    
-    if _model is not None:
-        return _model, _tokenizer
-    
-    logger.info(f"Loading base model: {BASE_MODEL_ID}")
-    logger.info(f"Loading LoRA adapter: {ADAPTER_ID}")
-    
-    import torch
-    from transformers import AutoTokenizer, AutoModelForCausalLM
-    from peft import PeftModel
-    
-    # Determine device
-    if DEVICE == "auto":
-        if torch.cuda.is_available():
-            device = "cuda"
-        elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            device = "mps"
-        else:
-            device = "cpu"
-    else:
-        device = DEVICE
-    
-    logger.info(f"Using device: {device}")
-    
-    # Load tokenizer
-    _tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_ID, trust_remote_code=True)
-    if _tokenizer.pad_token is None:
-        _tokenizer.pad_token = _tokenizer.eos_token
-    
-    # Load base model
-    logger.info("Loading base model weights...")
-    dtype = torch.float16 if device == "mps" else torch.bfloat16
-    
-    base_model = AutoModelForCausalLM.from_pretrained(
-        BASE_MODEL_ID,
-        torch_dtype=dtype,
-        trust_remote_code=True,
-    )
-    base_model = base_model.to(device)
-    
-    # Apply LoRA adapter
-    logger.info("Applying LoRA adapter...")
-    _model = PeftModel.from_pretrained(base_model, ADAPTER_ID)
-    _model.eval()
-    
-    logger.info(f"Model loaded on {next(_model.parameters()).device}")
-    
-    return _model, _tokenizer
-
-# ================================================================
-# Critique Generation
-# ================================================================
-
-@dataclass
-class CritiqueResult:
-    valid: bool
-    severity: str
-    critique: str
-    confidence: float
-    flags: list
-    domain: str
-    latency_ms: float
-
-def generate_critique(rationale: str, domain: str = "general", context: Optional[str] = None) -> CritiqueResult:
-    """Generate adversarial critique."""
-    import torch
-    
-    start_time = time.time()
-    model, tokenizer = get_model()
-    
-    # Format prompt
-    prompt_parts = [f"### Domain: {domain}\n"]
-    if context:
-        prompt_parts.append(f"### Context:\n{context}\n")
-    prompt_parts.append(f"### Rationale:\n{rationale}\n\n### Critique:\n")
-    prompt = "".join(prompt_parts)
-    
-    # Tokenize
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=MAX_LENGTH)
-    inputs = {k: v.to(model.device) for k, v in inputs.items()}
-    
-    # Generate
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=256,
-            do_sample=True,
-            temperature=0.7,
-            top_p=0.9,
-            pad_token_id=tokenizer.pad_token_id,
-            eos_token_id=tokenizer.eos_token_id,
-        )
-    
-    # Decode
-    generated = tokenizer.decode(
-        outputs[0][inputs["input_ids"].shape[1]:],
-        skip_special_tokens=True
-    ).strip()
-    
-    # Parse severity and flags
-    flags = []
-    severity = Severity.PASS
-    critique_lower = generated.lower()
-    
-    if any(w in critique_lower for w in ["critical", "severe", "dangerous", "fatal"]):
-        severity = Severity.CRITICAL
-        flags.append("critical_flaw")
-    elif any(w in critique_lower for w in ["significant", "major", "serious", "flawed"]):
-        severity = Severity.HIGH
-        flags.append("significant_flaw")
-    elif any(w in critique_lower for w in ["concern", "issue", "problem", "missing"]):
-        severity = Severity.MEDIUM
-        flags.append("notable_concern")
-    elif any(w in critique_lower for w in ["minor", "slight", "small"]):
-        severity = Severity.LOW
-        flags.append("minor_issue")
-    
-    # Detect specific issues
-    if any(w in critique_lower for w in ["overconfident", "overconfidence", "too certain"]):
-        flags.append("overconfidence")
-    if any(w in critique_lower for w in ["missing", "omit", "neglect", "fail to consider"]):
-        flags.append("missing_consideration")
-    if any(w in critique_lower for w in ["contradict", "inconsistent", "conflict"]):
-        flags.append("logical_inconsistency")
-    if any(w in critique_lower for w in ["evidence", "support", "justify", "unsupported"]):
-        flags.append("insufficient_evidence")
-    if any(w in critique_lower for w in ["risk", "danger", "threat", "hazard"]):
-        flags.append("unaddressed_risk")
-    
-    valid = severity in [Severity.PASS, Severity.LOW]
-    confidence = 0.85 if len(generated) >= 20 else 0.5
-    latency_ms = (time.time() - start_time) * 1000
-    
-    return CritiqueResult(
-        valid=valid,
-        severity=severity.value,
-        critique=generated,
-        confidence=confidence,
-        flags=flags,
-        domain=domain,
-        latency_ms=round(latency_ms, 2),
-    )
+model_manager = ModelManager.get_instance()
+critique_generator = CritiqueGenerator(model_manager)
+shutdown_handler = GracefulShutdown(model_manager)
 
 # ================================================================
 # MCP Server
 # ================================================================
 
 server = Server("minicrit")
+
 
 @server.list_tools()
 async def list_tools():
@@ -244,6 +101,8 @@ async def list_tools():
                     "rationale": {
                         "type": "string",
                         "description": "The AI reasoning/rationale to validate",
+                        "minLength": 10,
+                        "maxLength": 10000,
                     },
                     "domain": {
                         "type": "string",
@@ -267,66 +126,228 @@ async def list_tools():
                 "properties": {},
             },
         ),
+        Tool(
+            name="batch_validate",
+            description="Validate multiple AI reasonings in batch",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "description": "List of items to validate",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {"type": "string"},
+                                "rationale": {"type": "string"},
+                                "domain": {"type": "string", "enum": DOMAINS},
+                            },
+                            "required": ["id", "rationale"],
+                        },
+                        "maxItems": 100,
+                    },
+                },
+                "required": ["items"],
+            },
+        ),
     ]
+
 
 @server.call_tool()
 async def call_tool(name: str, arguments: dict):
-    """Handle tool calls."""
-    
+    """Handle tool calls with specific exception handling."""
+
     if name == "validate_reasoning":
-        rationale = arguments.get("rationale", "")
-        domain = arguments.get("domain", "general")
-        context = arguments.get("context")
-        
-        if not rationale:
-            return CallToolResult(
-                content=[TextContent(type="text", text="Error: rationale is required")]
-            )
-        
-        if domain not in DOMAINS:
-            domain = "general"
-        
-        try:
-            result = generate_critique(rationale, domain, context)
-            return CallToolResult(
-                content=[TextContent(type="text", text=json.dumps(asdict(result), indent=2))]
-            )
-        except Exception as e:
-            logger.error(f"Critique error: {e}")
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Error: {str(e)}")]
-            )
-    
+        return await _handle_validate_reasoning(arguments)
+
     elif name == "get_model_info":
-        info = {
-            "adapter": ADAPTER_ID,
-            "base_model": BASE_MODEL_ID,
-            "device": DEVICE,
-            "domains": DOMAINS,
-            "model_loaded": _model is not None,
-            "company": "Antagon Inc.",
-            "cage_code": "17E75",
-        }
-        return CallToolResult(
-            content=[TextContent(type="text", text=json.dumps(info, indent=2))]
-        )
-    
+        return await _handle_get_model_info()
+
+    elif name == "batch_validate":
+        return await _handle_batch_validate(arguments)
+
     return CallToolResult(
         content=[TextContent(type="text", text=f"Unknown tool: {name}")]
     )
+
+
+async def _handle_validate_reasoning(arguments: dict) -> CallToolResult:
+    """Handle validate_reasoning tool call."""
+    rationale = arguments.get("rationale", "")
+    domain = arguments.get("domain", "general")
+    context = arguments.get("context")
+
+    if not rationale:
+        return CallToolResult(
+            content=[TextContent(
+                type="text",
+                text=json.dumps({"error": "rationale is required", "code": "INVALID_INPUT"})
+            )]
+        )
+
+    if domain not in DOMAINS:
+        domain = "general"
+
+    try:
+        result = await critique_generator.generate_async(
+            rationale=rationale,
+            domain=domain,
+            context=context,
+        )
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(result.to_dict(), indent=2))]
+        )
+
+    except InvalidInputError as e:
+        logger.warning(f"Invalid input: {e}")
+        return CallToolResult(
+            content=[TextContent(
+                type="text",
+                text=json.dumps({"error": str(e), "code": "INVALID_INPUT"})
+            )]
+        )
+
+    except ModelLoadError as e:
+        logger.error(f"Model load error: {e}")
+        return CallToolResult(
+            content=[TextContent(
+                type="text",
+                text=json.dumps({"error": f"Model failed to load: {e}", "code": "MODEL_LOAD_ERROR"})
+            )]
+        )
+
+    except InferenceTimeoutError as e:
+        logger.error(f"Inference timeout: {e}")
+        return CallToolResult(
+            content=[TextContent(
+                type="text",
+                text=json.dumps({"error": str(e), "code": "TIMEOUT"})
+            )]
+        )
+
+    except InferenceError as e:
+        logger.error(f"Inference error: {e}")
+        return CallToolResult(
+            content=[TextContent(
+                type="text",
+                text=json.dumps({"error": str(e), "code": "INFERENCE_ERROR"})
+            )]
+        )
+
+    except MemoryError as e:
+        logger.error(f"Memory error: {e}")
+        return CallToolResult(
+            content=[TextContent(
+                type="text",
+                text=json.dumps({"error": "Out of memory", "code": "OOM_ERROR"})
+            )]
+        )
+
+
+async def _handle_get_model_info() -> CallToolResult:
+    """Handle get_model_info tool call."""
+    info = {
+        "adapter": ADAPTER_ID,
+        "base_model": BASE_MODEL_ID,
+        "device": model_manager.device or DEVICE,
+        "domains": DOMAINS,
+        "model_loaded": model_manager.is_loaded,
+        "stats": model_manager.stats,
+        "company": "Antagon Inc.",
+        "cage_code": "17E75",
+        "version": "1.2.0",
+    }
+    return CallToolResult(
+        content=[TextContent(type="text", text=json.dumps(info, indent=2))]
+    )
+
+
+async def _handle_batch_validate(arguments: dict) -> CallToolResult:
+    """Handle batch_validate tool call."""
+    items = arguments.get("items", [])
+
+    if not items:
+        return CallToolResult(
+            content=[TextContent(
+                type="text",
+                text=json.dumps({"error": "items array is required", "code": "INVALID_INPUT"})
+            )]
+        )
+
+    if len(items) > 100:
+        return CallToolResult(
+            content=[TextContent(
+                type="text",
+                text=json.dumps({"error": "Maximum 100 items allowed", "code": "INVALID_INPUT"})
+            )]
+        )
+
+    results = []
+    for item in items:
+        item_id = item.get("id", "unknown")
+        rationale = item.get("rationale", "")
+        domain = item.get("domain", "general")
+
+        try:
+            result = await critique_generator.generate_async(
+                rationale=rationale,
+                domain=domain,
+                request_id=item_id,
+            )
+            results.append({
+                "id": item_id,
+                **result.to_dict(),
+            })
+
+        except (InvalidInputError, ModelLoadError, InferenceTimeoutError, InferenceError) as e:
+            results.append({
+                "id": item_id,
+                "error": str(e),
+                "code": type(e).__name__.upper(),
+            })
+
+        except MemoryError:
+            results.append({
+                "id": item_id,
+                "error": "Out of memory",
+                "code": "OOM_ERROR",
+            })
+
+    return CallToolResult(
+        content=[TextContent(
+            type="text",
+            text=json.dumps({"results": results, "count": len(results)}, indent=2)
+        )]
+    )
+
 
 # ================================================================
 # Main
 # ================================================================
 
 async def main():
+    """Main entry point."""
     logger.info("Starting MiniCrit MCP Server")
     logger.info(f"Base model: {BASE_MODEL_ID}")
     logger.info(f"LoRA adapter: {ADAPTER_ID}")
     logger.info(f"Device: {DEVICE}")
-    
+
+    # Register graceful shutdown
+    shutdown_handler.register()
+
+    # Preload model if configured
+    if PRELOAD_MODEL:
+        logger.info("Preloading model (MINICRIT_PRELOAD=true)...")
+        try:
+            await model_manager.preload_async()
+            logger.info("Model preloaded successfully")
+        except ModelLoadError as e:
+            logger.error(f"Failed to preload model: {e}")
+            # Continue anyway - will retry on first request
+
     async with stdio_server() as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())
+
 
 if __name__ == "__main__":
     asyncio.run(main())

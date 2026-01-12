@@ -32,6 +32,13 @@ from src.logging_config import setup_logging, get_logger
 setup_logging()
 logger = get_logger(__name__)
 
+# CORS configuration - configurable via environment variable
+import os
+CORS_ORIGINS = os.environ.get(
+    "MINICRIT_CORS_ORIGINS",
+    "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000"
+).split(",")
+
 # Global model state
 _model_state: dict[str, Any] = {
     "model": None,
@@ -147,13 +154,13 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Add CORS middleware
+# Add CORS middleware with configurable origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key"],
 )
 
 
@@ -194,7 +201,9 @@ def load_model(model_path: str | None = None) -> None:
             model = PeftModel.from_pretrained(model, adapter_path)
             model = model.merge_and_unload()
             logger.info("LoRA adapter loaded and merged")
-        except Exception as e:
+        except FileNotFoundError as e:
+            logger.warning(f"Adapter not found: {e}. Using base model.")
+        except (ValueError, RuntimeError) as e:
             logger.warning(f"Could not load adapter: {e}. Using base model.")
 
         model.eval()
@@ -207,8 +216,20 @@ def load_model(model_path: str | None = None) -> None:
 
         logger.info("Model loaded successfully")
 
-    except Exception as e:
-        logger.error(f"Failed to load model: {e}")
+    except ImportError as e:
+        logger.error(f"Missing dependency: {e}")
+        raise HTTPException(status_code=500, detail=f"Missing dependency: {e}")
+    except FileNotFoundError as e:
+        logger.error(f"Model files not found: {e}")
+        raise HTTPException(status_code=500, detail=f"Model files not found: {e}")
+    except RuntimeError as e:
+        if "out of memory" in str(e).lower():
+            logger.error(f"GPU out of memory: {e}")
+            raise HTTPException(status_code=503, detail="GPU out of memory")
+        logger.error(f"Runtime error loading model: {e}")
+        raise HTTPException(status_code=500, detail=f"Model loading failed: {e}")
+    except (ValueError, OSError) as e:
+        logger.error(f"Model loading failed: {e}")
         raise HTTPException(status_code=500, detail=f"Model loading failed: {e}")
 
 
@@ -343,9 +364,18 @@ async def create_critique(request: CritiqueRequest) -> CritiqueResponse:
             model_name=_model_state.get("model_name", "unknown"),
         )
 
-    except Exception as e:
+    except ValueError as e:
+        logger.warning(f"Invalid input: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        if "out of memory" in str(e).lower():
+            logger.error(f"GPU out of memory: {e}")
+            raise HTTPException(status_code=503, detail="GPU out of memory")
         logger.error(f"Critique generation failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    except MemoryError as e:
+        logger.error(f"Memory error: {e}")
+        raise HTTPException(status_code=503, detail="Server out of memory")
 
 
 @app.post("/critique/batch", response_model=BatchCritiqueResponse)
@@ -379,10 +409,28 @@ async def create_batch_critiques(request: BatchCritiqueRequest) -> BatchCritique
             _model_state["request_count"] += 1
             _model_state["total_tokens_generated"] += tokens
 
-        except Exception as e:
-            logger.error(f"Batch item failed: {e}")
+        except ValueError as e:
+            logger.warning(f"Batch item invalid input: {e}")
+            critiques.append(CritiqueResponse(
+                critique=f"Invalid input: {str(e)}",
+                rationale=rationale,
+                tokens_generated=0,
+                latency_ms=0,
+                model_name="error",
+            ))
+        except RuntimeError as e:
+            logger.error(f"Batch item runtime error: {e}")
             critiques.append(CritiqueResponse(
                 critique=f"Error: {str(e)}",
+                rationale=rationale,
+                tokens_generated=0,
+                latency_ms=0,
+                model_name="error",
+            ))
+        except MemoryError as e:
+            logger.error(f"Batch item memory error: {e}")
+            critiques.append(CritiqueResponse(
+                critique="Error: Out of memory",
                 rationale=rationale,
                 tokens_generated=0,
                 latency_ms=0,

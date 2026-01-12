@@ -6,7 +6,7 @@
 # Co-Founder & CTO: Jacqueline Villamor Ousley (Jacque Ousley) TS/SCI
 # ================================================================
 # WATERMARK Layer 1: Antagon Inc. Proprietary
-# WATERMARK Layer 2: MiniCrit MCP Server v1.0 HTTP
+# WATERMARK Layer 2: MiniCrit MCP Server v1.2 HTTP
 # WATERMARK Layer 3: Model Context Protocol Implementation
 # WATERMARK Layer 4: Hash SHA256:MCP_HTTP_2026
 # WATERMARK Layer 5: Build 20260112
@@ -17,56 +17,70 @@ MiniCrit MCP Server - HTTP/SSE Transport
 
 Remote-deployable version using HTTP with Server-Sent Events (SSE).
 Deploy to cloud infrastructure for organization-wide access.
+Uses thread-safe ModelManager and CritiqueGenerator from core module.
 
 Installation:
     pip install mcp fastapi uvicorn torch transformers peft
 
 Usage:
-    python minicrit_mcp_server_http.py
-    
+    python server_http.py
+
     # Or with uvicorn for production
-    uvicorn minicrit_mcp_server_http:app --host 0.0.0.0 --port 8000
+    uvicorn src.mcp.server_http:app --host 0.0.0.0 --port 8000
 
 Environment Variables:
-    MINICRIT_MODEL: HuggingFace model ID (default: wmaousley/MiniCrit-7B)
+    MINICRIT_ADAPTER: LoRA adapter (default: wmaousley/MiniCrit-7B)
+    MINICRIT_BASE_MODEL: Base model (default: Qwen/Qwen2-7B-Instruct)
     MINICRIT_DEVICE: Device (auto, cuda, cpu, mps)
     MINICRIT_API_KEY: API key for authentication (optional)
     MINICRIT_PORT: Server port (default: 8000)
+    MINICRIT_CORS_ORIGINS: Comma-separated allowed origins
+    MINICRIT_PRELOAD: Set to "true" to preload model on startup
 """
 
 import os
-import sys
 import json
 import logging
-import time
 import asyncio
-from typing import Optional, Any
-from enum import Enum
-from dataclasses import dataclass, asdict
+import secrets
 from datetime import datetime
+from typing import Optional
+from contextlib import asynccontextmanager
 
 # Web framework
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from pydantic import BaseModel, Field
 import uvicorn
+
+# Import from core module
+from src.mcp.core import (
+    ModelManager,
+    CritiqueGenerator,
+    CritiqueResult,
+    RateLimiter,
+    GracefulShutdown,
+    ModelLoadError,
+    InferenceTimeoutError,
+    InferenceError,
+    InvalidInputError,
+    DOMAINS,
+    ADAPTER_ID,
+    BASE_MODEL_ID,
+    DEVICE,
+    LOG_LEVEL,
+    get_cors_origins,
+)
 
 # ================================================================
 # Configuration
 # ================================================================
 
-MODEL_ID = os.environ.get("MINICRIT_MODEL", "wmaousley/MiniCrit-7B")
-DEVICE = os.environ.get("MINICRIT_DEVICE", "auto")
-MAX_LENGTH = int(os.environ.get("MINICRIT_MAX_LENGTH", "512"))
 API_KEY = os.environ.get("MINICRIT_API_KEY", None)
 PORT = int(os.environ.get("MINICRIT_PORT", "8000"))
-LOG_LEVEL = os.environ.get("MINICRIT_LOG_LEVEL", "INFO")
-
-DOMAINS = [
-    "trading", "finance", "risk_assessment", "resource_allocation",
-    "planning_scheduling", "cybersecurity", "defense", "medical", "general",
-]
+PRELOAD_MODEL = os.environ.get("MINICRIT_PRELOAD", "false").lower() == "true"
+CORS_ORIGINS = get_cors_origins()
 
 # ================================================================
 # Logging Setup
@@ -79,68 +93,47 @@ logging.basicConfig(
 logger = logging.getLogger("minicrit-mcp-http")
 
 # ================================================================
-# Model Loading (Lazy)
+# Global Instances (Thread-Safe)
 # ================================================================
 
-_model = None
-_tokenizer = None
-_model_lock = asyncio.Lock()
-
-async def get_model():
-    """Lazy load the MiniCrit model with async lock."""
-    global _model, _tokenizer
-    
-    async with _model_lock:
-        if _model is not None:
-            return _model, _tokenizer
-        
-        logger.info(f"Loading MiniCrit model: {MODEL_ID}")
-        
-        import torch
-        from transformers import AutoTokenizer, AutoModelForCausalLM
-        
-        _tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
-        if _tokenizer.pad_token is None:
-            _tokenizer.pad_token = _tokenizer.eos_token
-        
-        device_map = DEVICE if DEVICE != "auto" else "auto"
-        
-        _model = AutoModelForCausalLM.from_pretrained(
-            MODEL_ID,
-            torch_dtype=torch.bfloat16,
-            device_map=device_map,
-            trust_remote_code=True,
-        )
-        _model.eval()
-        
-        logger.info(f"Model loaded on {next(_model.parameters()).device}")
-        return _model, _tokenizer
+model_manager = ModelManager.get_instance()
+critique_generator = CritiqueGenerator(model_manager)
+shutdown_handler = GracefulShutdown(model_manager)
 
 # ================================================================
 # Data Models
 # ================================================================
 
-class Severity(str, Enum):
-    PASS = "pass"
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
-
 class ValidateRequest(BaseModel):
-    rationale: str = Field(..., description="The AI reasoning to validate")
+    """Request model for validation."""
+    rationale: str = Field(
+        ...,
+        description="The AI reasoning to validate",
+        min_length=10,
+        max_length=10000,
+    )
     domain: str = Field("general", description="Domain context")
-    context: Optional[str] = Field(None, description="Additional context")
+    context: Optional[str] = Field(None, description="Additional context", max_length=5000)
+
 
 class BatchItem(BaseModel):
+    """Single item in batch request."""
     id: str = Field(..., description="Item identifier")
     rationale: str = Field(..., description="The AI reasoning to validate")
     domain: str = Field("general", description="Domain context")
 
+
 class BatchRequest(BaseModel):
-    items: list[BatchItem] = Field(..., description="Items to validate")
+    """Batch validation request."""
+    items: list[BatchItem] = Field(
+        ...,
+        description="Items to validate",
+        max_length=100,
+    )
+
 
 class CritiqueResponse(BaseModel):
+    """Response model for critique."""
     valid: bool
     severity: str
     critique: str
@@ -149,102 +142,39 @@ class CritiqueResponse(BaseModel):
     domain: str
     latency_ms: float
     timestamp: str
+    request_id: str = ""
+
 
 # ================================================================
-# Critique Generation
+# Lifespan Management
 # ================================================================
 
-async def generate_critique(
-    rationale: str,
-    domain: str = "general",
-    context: Optional[str] = None,
-) -> CritiqueResponse:
-    """Generate adversarial critique."""
-    import torch
-    
-    start_time = time.time()
-    model, tokenizer = await get_model()
-    
-    # Format prompt
-    prompt_parts = [f"### Domain: {domain}\n"]
-    if context:
-        prompt_parts.append(f"### Context:\n{context}\n")
-    prompt_parts.append(f"### Rationale:\n{rationale}\n\n### Critique:\n")
-    prompt = "".join(prompt_parts)
-    
-    # Tokenize
-    inputs = tokenizer(
-        prompt,
-        return_tensors="pt",
-        truncation=True,
-        max_length=MAX_LENGTH,
-    ).to(model.device)
-    
-    # Generate
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=256,
-            do_sample=True,
-            temperature=0.7,
-            top_p=0.9,
-            pad_token_id=tokenizer.pad_token_id,
-            eos_token_id=tokenizer.eos_token_id,
-        )
-    
-    # Decode
-    generated = tokenizer.decode(
-        outputs[0][inputs["input_ids"].shape[1]:],
-        skip_special_tokens=True,
-    ).strip()
-    
-    # Parse critique
-    flags = []
-    severity = Severity.PASS
-    critique_lower = generated.lower()
-    
-    if any(w in critique_lower for w in ["critical", "severe", "dangerous"]):
-        severity = Severity.CRITICAL
-        flags.append("critical_flaw")
-    elif any(w in critique_lower for w in ["significant", "major", "serious", "flawed"]):
-        severity = Severity.HIGH
-        flags.append("significant_flaw")
-    elif any(w in critique_lower for w in ["concern", "issue", "problem", "missing"]):
-        severity = Severity.MEDIUM
-        flags.append("notable_concern")
-    elif any(w in critique_lower for w in ["minor", "slight"]):
-        severity = Severity.LOW
-        flags.append("minor_issue")
-    
-    # Specific flags
-    if any(w in critique_lower for w in ["overconfident", "overconfidence"]):
-        flags.append("overconfidence")
-    if any(w in critique_lower for w in ["missing", "omit", "neglect"]):
-        flags.append("missing_consideration")
-    if any(w in critique_lower for w in ["contradict", "inconsistent"]):
-        flags.append("logical_inconsistency")
-    if any(w in critique_lower for w in ["evidence", "support", "justify"]):
-        flags.append("insufficient_evidence")
-    if any(w in critique_lower for w in ["risk", "danger", "threat"]):
-        flags.append("unaddressed_risk")
-    
-    valid = severity in [Severity.PASS, Severity.LOW]
-    confidence = 0.85 if len(generated) >= 20 else 0.5
-    if len(flags) > 2:
-        confidence = 0.9
-    
-    latency_ms = (time.time() - start_time) * 1000
-    
-    return CritiqueResponse(
-        valid=valid,
-        severity=severity.value,
-        critique=generated,
-        confidence=confidence,
-        flags=flags,
-        domain=domain,
-        latency_ms=round(latency_ms, 2),
-        timestamp=datetime.utcnow().isoformat() + "Z",
-    )
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan."""
+    logger.info("Starting MiniCrit MCP HTTP Server...")
+    logger.info(f"Base model: {BASE_MODEL_ID}")
+    logger.info(f"Adapter: {ADAPTER_ID}")
+    logger.info(f"Device: {DEVICE}")
+    logger.info(f"CORS origins: {CORS_ORIGINS}")
+
+    # Register graceful shutdown
+    shutdown_handler.register()
+
+    # Preload model if configured
+    if PRELOAD_MODEL:
+        logger.info("Preloading model (MINICRIT_PRELOAD=true)...")
+        try:
+            await model_manager.preload_async()
+            logger.info("Model preloaded successfully")
+        except ModelLoadError as e:
+            logger.error(f"Failed to preload model: {e}")
+
+    yield
+
+    logger.info("Shutting down MiniCrit MCP HTTP Server...")
+    model_manager.unload()
+
 
 # ================================================================
 # FastAPI Application
@@ -253,28 +183,55 @@ async def generate_critique(
 app = FastAPI(
     title="MiniCrit MCP Server",
     description="Adversarial AI Validation via Model Context Protocol",
-    version="1.0.0",
+    version="1.2.0",
     contact={
         "name": "Antagon Inc.",
         "email": "founders@antagon.ai",
         "url": "https://www.antagon.ai",
     },
+    lifespan=lifespan,
 )
 
-# CORS for browser clients
+# CORS middleware with configurable origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-API-Key", "Authorization"],
 )
 
-# API Key authentication (optional)
+
+# ================================================================
+# Authentication
+# ================================================================
+
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
+    """Verify API key if configured."""
     if API_KEY and x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API key")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing API key",
+            headers={"WWW-Authenticate": "API-Key"},
+        )
     return True
+
+
+# ================================================================
+# Request Logging Middleware
+# ================================================================
+
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    """Add request ID and log requests."""
+    request_id = secrets.token_hex(8)
+    request.state.request_id = request_id
+
+    response = await call_next(request)
+
+    response.headers["X-Request-ID"] = request_id
+    return response
+
 
 # ================================================================
 # Endpoints
@@ -285,70 +242,141 @@ async def health_check():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "model": MODEL_ID,
-        "model_loaded": _model is not None,
+        "model": ADAPTER_ID,
+        "base_model": BASE_MODEL_ID,
+        "model_loaded": model_manager.is_loaded,
+        "device": model_manager.device,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
     }
+
 
 @app.get("/info")
 async def get_info():
     """Get server information."""
     return {
-        "model_id": MODEL_ID,
-        "device": DEVICE,
-        "max_length": MAX_LENGTH,
+        "adapter": ADAPTER_ID,
+        "base_model": BASE_MODEL_ID,
+        "device": model_manager.device or DEVICE,
+        "max_length": 512,
         "supported_domains": DOMAINS,
-        "version": "1.0.0",
+        "version": "1.2.0",
         "company": "Antagon Inc.",
         "cage_code": "17E75",
         "uei": "KBSGT7CZ4AH3",
-        "model_loaded": _model is not None,
+        "model_loaded": model_manager.is_loaded,
+        "stats": model_manager.stats,
     }
+
 
 @app.post("/validate", response_model=CritiqueResponse)
 async def validate_reasoning(
-    request: ValidateRequest,
-    authorized: bool = Depends(verify_api_key),
+    request: Request,
+    body: ValidateRequest,
+    authorized: bool = Header(None, alias="X-API-Key"),
 ):
     """Validate AI reasoning."""
-    logger.info(f"Validating reasoning in domain: {request.domain}")
-    
+    # Verify API key if configured
+    if API_KEY and authorized != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    request_id = getattr(request.state, "request_id", secrets.token_hex(8))
+    logger.info(f"Validating reasoning in domain: {body.domain} (request_id={request_id})")
+
     try:
-        result = await generate_critique(
-            rationale=request.rationale,
-            domain=request.domain,
-            context=request.context,
+        result = await critique_generator.generate_async(
+            rationale=body.rationale,
+            domain=body.domain,
+            context=body.context,
+            request_id=request_id,
         )
-        return result
-    except Exception as e:
-        logger.error(f"Validation error: {e}")
+
+        return CritiqueResponse(
+            valid=result.valid,
+            severity=result.severity,
+            critique=result.critique,
+            confidence=result.confidence,
+            flags=result.flags,
+            domain=result.domain,
+            latency_ms=result.latency_ms,
+            timestamp=datetime.utcnow().isoformat() + "Z",
+            request_id=request_id,
+        )
+
+    except InvalidInputError as e:
+        logger.warning(f"Invalid input: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except ModelLoadError as e:
+        logger.error(f"Model load error: {e}")
+        raise HTTPException(status_code=503, detail=f"Model unavailable: {e}")
+
+    except InferenceTimeoutError as e:
+        logger.error(f"Inference timeout: {e}")
+        raise HTTPException(status_code=504, detail=str(e))
+
+    except InferenceError as e:
+        logger.error(f"Inference error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+    except MemoryError as e:
+        logger.error(f"Memory error: {e}")
+        raise HTTPException(status_code=503, detail="Server out of memory")
+
 
 @app.post("/batch")
 async def batch_validate(
-    request: BatchRequest,
-    authorized: bool = Depends(verify_api_key),
+    request: Request,
+    body: BatchRequest,
+    authorized: bool = Header(None, alias="X-API-Key"),
 ):
     """Batch validate multiple items."""
-    logger.info(f"Batch validating {len(request.items)} items")
-    
+    # Verify API key if configured
+    if API_KEY and authorized != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    request_id = getattr(request.state, "request_id", secrets.token_hex(8))
+    logger.info(f"Batch validating {len(body.items)} items (request_id={request_id})")
+
     results = []
-    for item in request.items:
+    for item in body.items:
         try:
-            result = await generate_critique(
+            result = await critique_generator.generate_async(
                 rationale=item.rationale,
                 domain=item.domain,
+                request_id=f"{request_id}-{item.id}",
             )
             results.append({
                 "id": item.id,
-                **result.dict(),
+                "valid": result.valid,
+                "severity": result.severity,
+                "critique": result.critique,
+                "confidence": result.confidence,
+                "flags": result.flags,
+                "domain": result.domain,
+                "latency_ms": result.latency_ms,
+                "timestamp": datetime.utcnow().isoformat() + "Z",
             })
-        except Exception as e:
+
+        except (InvalidInputError, ModelLoadError, InferenceTimeoutError, InferenceError) as e:
             results.append({
                 "id": item.id,
                 "error": str(e),
+                "error_code": type(e).__name__,
             })
-    
-    return {"results": results, "count": len(results)}
+
+        except MemoryError:
+            results.append({
+                "id": item.id,
+                "error": "Out of memory",
+                "error_code": "MemoryError",
+            })
+
+    return {
+        "results": results,
+        "count": len(results),
+        "request_id": request_id,
+    }
+
 
 # ================================================================
 # MCP SSE Endpoint
@@ -357,7 +385,7 @@ async def batch_validate(
 @app.get("/sse")
 async def mcp_sse_endpoint():
     """MCP Server-Sent Events endpoint for remote MCP clients."""
-    
+
     async def event_generator():
         # Send initial capabilities
         capabilities = {
@@ -369,7 +397,7 @@ async def mcp_sse_endpoint():
                     "inputSchema": {
                         "type": "object",
                         "properties": {
-                            "rationale": {"type": "string"},
+                            "rationale": {"type": "string", "minLength": 10},
                             "domain": {"type": "string", "enum": DOMAINS},
                             "context": {"type": "string"},
                         },
@@ -382,20 +410,25 @@ async def mcp_sse_endpoint():
                     "inputSchema": {
                         "type": "object",
                         "properties": {
-                            "items": {"type": "array"},
+                            "items": {"type": "array", "maxItems": 100},
                         },
                         "required": ["items"],
                     },
                 },
+                {
+                    "name": "get_model_info",
+                    "description": "Get model information",
+                    "inputSchema": {"type": "object", "properties": {}},
+                },
             ],
         }
         yield f"data: {json.dumps(capabilities)}\n\n"
-        
+
         # Keep connection alive
         while True:
             await asyncio.sleep(30)
-            yield f"data: {json.dumps({'type': 'ping'})}\n\n"
-    
+            yield f"data: {json.dumps({'type': 'ping', 'timestamp': datetime.utcnow().isoformat()})}\n\n"
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -405,13 +438,11 @@ async def mcp_sse_endpoint():
         },
     )
 
+
 # ================================================================
 # Entry Point
 # ================================================================
 
 if __name__ == "__main__":
     logger.info(f"Starting MiniCrit MCP Server (HTTP) on port {PORT}")
-    logger.info(f"Model: {MODEL_ID}")
-    logger.info(f"Device: {DEVICE}")
-    
     uvicorn.run(app, host="0.0.0.0", port=PORT)

@@ -19,14 +19,67 @@ Servers:
 - server_prod.py: Production HTTP server with auth/rate limiting
 - server_http.py: Basic HTTP server
 
+Core Module:
+- core.py: Thread-safe ModelManager, CritiqueGenerator, RateLimiter
+
 Usage:
     # Local (Claude Desktop)
     python -m src.mcp.server
-    
-    # Production
+
+    # Production HTTP
+    python -m src.mcp.server_http
+
+    # Production with auth
     python -m src.mcp.server_prod
+
+Programmatic Usage:
+    from src.mcp import ModelManager, CritiqueGenerator, CritiqueResult
+
+    manager = ModelManager.get_instance()
+    generator = CritiqueGenerator(manager)
+    result = generator.generate("AI reasoning to validate", domain="trading")
 """
 
-from .server import generate_critique, CritiqueResult
+from .core import (
+    # Classes
+    ModelManager,
+    CritiqueGenerator,
+    CritiqueResult,
+    RateLimiter,
+    GracefulShutdown,
+    Severity,
+    # Exceptions
+    ModelNotLoadedError,
+    ModelLoadError,
+    InferenceTimeoutError,
+    InferenceError,
+    InvalidInputError,
+    # Functions
+    get_model_manager,
+    get_critique_generator,
+    get_cors_origins,
+    # Constants
+    DOMAINS,
+)
 
-__all__ = ["generate_critique", "CritiqueResult"]
+__all__ = [
+    # Classes
+    "ModelManager",
+    "CritiqueGenerator",
+    "CritiqueResult",
+    "RateLimiter",
+    "GracefulShutdown",
+    "Severity",
+    # Exceptions
+    "ModelNotLoadedError",
+    "ModelLoadError",
+    "InferenceTimeoutError",
+    "InferenceError",
+    "InvalidInputError",
+    # Functions
+    "get_model_manager",
+    "get_critique_generator",
+    "get_cors_origins",
+    # Constants
+    "DOMAINS",
+]
