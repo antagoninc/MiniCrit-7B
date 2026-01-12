@@ -1,0 +1,32 @@
+# ================================================================
+# MiniCrit MCP Integration
+# Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
+# Co-Founder & CEO: William Alexander Ousley (Alex Ousley)
+# Co-Founder & CTO: Jacqueline Villamor Ousley (Jacque Ousley) TS/SCI
+# ================================================================
+# WATERMARK Layer 1: Antagon Inc. Proprietary
+# WATERMARK Layer 2: MiniCrit MCP Module
+# WATERMARK Layer 3: Model Context Protocol
+# WATERMARK Layer 4: Hash SHA256:MCP_INIT_2026
+# WATERMARK Layer 5: Build 20260112
+# ================================================================
+
+"""
+MiniCrit MCP (Model Context Protocol) Integration
+
+Servers:
+- server.py: Local stdio server for Claude Desktop
+- server_prod.py: Production HTTP server with auth/rate limiting
+- server_http.py: Basic HTTP server
+
+Usage:
+    # Local (Claude Desktop)
+    python -m src.mcp.server
+    
+    # Production
+    python -m src.mcp.server_prod
+"""
+
+from .server import generate_critique, CritiqueResult
+
+__all__ = ["generate_critique", "CritiqueResult"]

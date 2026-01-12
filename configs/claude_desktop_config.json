@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "minicrit": {
+      "command": "python3",
+      "args": ["/path/to/MiniCrit-7B/src/mcp/server.py"],
+      "env": {
+        "MINICRIT_ADAPTER": "wmaousley/MiniCrit-7B",
+        "MINICRIT_BASE_MODEL": "Qwen/Qwen2-7B-Instruct",
+        "MINICRIT_DEVICE": "auto"
+      }
+    }
+  }
+}

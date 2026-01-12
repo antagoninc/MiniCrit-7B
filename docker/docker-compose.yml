@@ -1,0 +1,164 @@
+# ================================================================
+# MiniCrit MCP Server - Docker Compose
+# Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
+# Co-Founder & CEO: William Alexander Ousley (Alex Ousley)
+# Co-Founder & CTO: Jacqueline Villamor Ousley (Jacque Ousley) TS/SCI
+# ================================================================
+# WATERMARK Layer 1: Antagon Inc. Proprietary
+# WATERMARK Layer 2: MiniCrit Docker Compose
+# WATERMARK Layer 3: Container Orchestration
+# WATERMARK Layer 4: Hash SHA256:COMPOSE_2026
+# WATERMARK Layer 5: Build 20260112
+# ================================================================
+
+version: '3.8'
+
+services:
+  # ============================================================
+  # MiniCrit MCP Server (GPU)
+  # ============================================================
+  minicrit:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: base
+    image: antagon/minicrit-mcp:latest
+    container_name: minicrit-mcp
+    restart: unless-stopped
+    
+    # GPU support (requires nvidia-docker)
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    
+    ports:
+      - "8000:8000"
+    
+    environment:
+      - MINICRIT_MODEL=${MINICRIT_MODEL:-wmaousley/MiniCrit-7B}
+      - MINICRIT_DEVICE=cuda
+      - MINICRIT_PORT=8000
+      - MINICRIT_API_KEYS=${MINICRIT_API_KEYS:-}
+      - MINICRIT_MASTER_KEY=${MINICRIT_MASTER_KEY:-}
+      - MINICRIT_RATE_LIMIT=${MINICRIT_RATE_LIMIT:-60}
+      - MINICRIT_LOG_LEVEL=${MINICRIT_LOG_LEVEL:-INFO}
+      - MINICRIT_LOG_REQUESTS=true
+      - MINICRIT_CORS_ORIGINS=${MINICRIT_CORS_ORIGINS:-*}
+      # HuggingFace cache for model persistence
+      - HF_HOME=/app/.cache/huggingface
+      - TRANSFORMERS_CACHE=/app/.cache/huggingface
+    
+    volumes:
+      # Persist model cache
+      - minicrit-cache:/app/.cache
+      # Optional: mount local model
+      # - ./models:/app/models:ro
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+  # ============================================================
+  # MiniCrit MCP Server (CPU-only)
+  # ============================================================
+  minicrit-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: cpu
+    image: antagon/minicrit-mcp:cpu
+    container_name: minicrit-mcp-cpu
+    restart: unless-stopped
+    profiles:
+      - cpu
+    
+    ports:
+      - "8000:8000"
+    
+    environment:
+      - MINICRIT_MODEL=${MINICRIT_MODEL:-wmaousley/MiniCrit-7B}
+      - MINICRIT_DEVICE=cpu
+      - MINICRIT_PORT=8000
+      - MINICRIT_API_KEYS=${MINICRIT_API_KEYS:-}
+      - MINICRIT_MASTER_KEY=${MINICRIT_MASTER_KEY:-}
+      - MINICRIT_RATE_LIMIT=${MINICRIT_RATE_LIMIT:-60}
+      - HF_HOME=/app/.cache/huggingface
+    
+    volumes:
+      - minicrit-cache:/app/.cache
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 180s
+
+  # ============================================================
+  # Redis (Optional - for distributed rate limiting)
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: minicrit-redis
+    restart: unless-stopped
+    profiles:
+      - redis
+    
+    ports:
+      - "6379:6379"
+    
+    volumes:
+      - redis-data:/data
+    
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================================
+  # Nginx Reverse Proxy (Optional)
+  # ============================================================
+  nginx:
+    image: nginx:alpine
+    container_name: minicrit-nginx
+    restart: unless-stopped
+    profiles:
+      - nginx
+    
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    
+    depends_on:
+      - minicrit
+
+volumes:
+  minicrit-cache:
+    name: minicrit-model-cache
+  redis-data:
+    name: minicrit-redis-data
+
+# ============================================================
+# Networks
+# ============================================================
+networks:
+  default:
+    name: minicrit-network

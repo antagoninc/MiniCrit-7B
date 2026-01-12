@@ -1,0 +1,26 @@
+# ================================================================
+# MiniCrit MCP Server - Requirements (CPU-only)
+# Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
+# ================================================================
+
+# MCP SDK
+mcp>=1.0.0
+
+# Web framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+
+# ML / Inference (CPU)
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch>=2.1.0
+transformers>=4.44.0
+peft>=0.12.0
+accelerate>=0.25.0
+
+# Authentication
+python-jose[cryptography]>=3.3.0
+
+# Utilities
+numpy>=1.26.0
+pandas>=2.0.0
