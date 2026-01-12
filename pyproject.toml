@@ -11,7 +11,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "minicrit"
-version = "0.1.0"
+version = "0.1.1"
 description = "Adversarial AI validation for autonomous systems - catch reasoning flaws before they become failures"
 readme = "README.md"
 license = {text = "Apache-2.0"}

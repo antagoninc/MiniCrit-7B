@@ -1,6 +1,32 @@
 # Changelog
 
-## [Unreleased] - 2026-01-12
+## [0.1.1] - 2026-01-12
+
+### Added
+- `src/mcp/core.py` - Thread-safe core module with ModelManager, CritiqueGenerator, RateLimiter
+- `tests/test_mcp_core.py` - 50+ test cases for MCP core module
+- Model preloading support via `MINICRIT_PRELOAD=true` environment variable
+- Inference timeout protection via `MINICRIT_INFERENCE_TIMEOUT` (default 120s)
+- Graceful shutdown handling for SIGTERM/SIGINT signals
+- Configurable CORS origins via `MINICRIT_CORS_ORIGINS` environment variable
+
+### Changed
+- Refactored `server.py` and `server_http.py` to use shared core module
+- Replaced broad `except Exception` with specific exception types throughout
+- CORS now defaults to localhost origins instead of wildcard `*`
+
+### Removed
+- `src/mcp/minicrit_mcp_server.py` (duplicate)
+- `src/mcp/minicrit_mcp_server_http.py` (duplicate)
+
+### Security
+- Hardened CORS configuration (no longer allows all origins by default)
+- Added input validation with `InvalidInputError` exception
+- Thread-safe model access prevents race conditions
+
+---
+
+## [0.1.0] - 2026-01-12
 
 ### Added
 
