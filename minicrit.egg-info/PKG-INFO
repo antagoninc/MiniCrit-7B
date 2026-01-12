@@ -1,3 +1,63 @@
+Metadata-Version: 2.4
+Name: minicrit
+Version: 0.1.0
+Summary: Adversarial AI validation for autonomous systems - catch reasoning flaws before they become failures
+Author-email: William Alexander Ousley <founders@antagon.ai>, Jacqueline Villamor Ousley <founders@antagon.ai>
+Maintainer-email: "Antagon Inc." <founders@antagon.ai>
+License: Apache-2.0
+Project-URL: Homepage, https://antagon.ai
+Project-URL: Documentation, https://github.com/antagoninc/MiniCrit-7B/tree/main/docs
+Project-URL: Repository, https://github.com/antagoninc/MiniCrit-7B
+Project-URL: Issues, https://github.com/antagoninc/MiniCrit-7B/issues
+Project-URL: Changelog, https://github.com/antagoninc/MiniCrit-7B/blob/main/CHANGELOG.md
+Keywords: ai-safety,adversarial-ai,llm,validation,trading,defense,reasoning,critique,mcp,model-context-protocol
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Financial and Insurance Industry
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Office/Business :: Financial :: Investment
+Classifier: Topic :: Security
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: torch>=2.0.0
+Requires-Dist: transformers>=4.40.0
+Requires-Dist: peft>=0.10.0
+Requires-Dist: accelerate>=0.25.0
+Provides-Extra: mcp
+Requires-Dist: mcp>=1.0.0; extra == "mcp"
+Requires-Dist: fastapi>=0.109.0; extra == "mcp"
+Requires-Dist: uvicorn>=0.27.0; extra == "mcp"
+Provides-Extra: server
+Requires-Dist: fastapi>=0.109.0; extra == "server"
+Requires-Dist: uvicorn>=0.27.0; extra == "server"
+Requires-Dist: python-jose>=3.3.0; extra == "server"
+Provides-Extra: training
+Requires-Dist: datasets>=2.16.0; extra == "training"
+Requires-Dist: wandb>=0.16.0; extra == "training"
+Requires-Dist: trl>=0.7.0; extra == "training"
+Requires-Dist: anthropic>=0.18.0; extra == "training"
+Provides-Extra: eval
+Requires-Dist: rouge-score>=0.1.2; extra == "eval"
+Requires-Dist: bert-score>=0.3.13; extra == "eval"
+Requires-Dist: pandas>=2.0.0; extra == "eval"
+Requires-Dist: numpy>=1.24.0; extra == "eval"
+Provides-Extra: all
+Requires-Dist: minicrit[eval,mcp,server,training]; extra == "all"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
+Requires-Dist: black>=23.0.0; extra == "dev"
+Requires-Dist: ruff>=0.1.0; extra == "dev"
+Requires-Dist: mypy>=1.0.0; extra == "dev"
+
 # MiniCrit-7B: Adversarial AI Validation for Autonomous Systems
 
 <p align="center">
@@ -9,7 +69,6 @@
 </p>
 
 <p align="center">
-  <a href="https://pypi.org/project/minicrit/"><img src="https://img.shields.io/pypi/v/minicrit?color=blue&label=PyPI" alt="PyPI"></a>
   <a href="https://huggingface.co/wmaousley/MiniCrit-7B"><img src="https://img.shields.io/badge/🤗%20HuggingFace-MiniCrit--7B-blue" alt="HuggingFace"></a>
   <a href="https://github.com/antagoninc/MiniCrit-7B/actions"><img src="https://img.shields.io/badge/Tests-169%20Passing-brightgreen" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-red" alt="License"></a>
@@ -69,70 +128,40 @@ Your AI Agent → MiniCrit Validation → Safer Decisions
 
 ## 🚀 Quick Start
 
-### Option 1: pip install (Recommended)
+### Option 1: Python Package
 
 ```bash
-pip install minicrit
+pip install torch transformers peft
 ```
 
 ```python
-from minicrit import MiniCrit
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import PeftModel
 
-# Initialize (downloads model automatically)
-critic = MiniCrit()
+# Load model
+base = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2-7B-Instruct")
+model = PeftModel.from_pretrained(base, "wmaousley/MiniCrit-7B")
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-7B-Instruct")
 
 # Validate reasoning
-result = critic.validate(
-    "Stock will rise because it rose yesterday",
-    domain="trading"
-)
+rationale = "Stock will rise because it rose yesterday"
+prompt = f"### Domain: trading\n### Rationale:\n{rationale}\n\n### Critique:\n"
 
-print(result.valid)      # False
-print(result.severity)   # "high" 
-print(result.critique)   # "This reasoning exhibits recency bias..."
-print(result.flags)      # ["overconfidence", "insufficient_evidence"]
+inputs = tokenizer(prompt, return_tensors="pt")
+outputs = model.generate(**inputs, max_new_tokens=256)
+critique = tokenizer.decode(outputs[0], skip_special_tokens=True)
 ```
 
-### Option 2: CLI
+### Option 2: Docker
 
 ```bash
-# Single validation
-minicrit "Buy AAPL, 95% confident" --domain trading
-
-# From file
-minicrit --file rationales.txt --output results.json
-
-# JSON output
-minicrit "MACD crossover signals buy" --json
-```
-
-### Installation Extras
-
-```bash
-# Core only
-pip install minicrit
-
-# With MCP server support
-pip install minicrit[mcp]
-
-# With training utilities
-pip install minicrit[training]
-
-# Everything
-pip install minicrit[all]
-```
-
-### Option 3: Docker
-
-```bash
-cd docker
 docker-compose up -d
 curl http://localhost:8000/critique \
   -H "Content-Type: application/json" \
   -d '{"rationale": "Buy signal based on MACD crossover", "domain": "trading"}'
 ```
 
-### Option 4: MCP (Claude Desktop / Claude Code)
+### Option 3: MCP (Claude Desktop / Claude Code)
 
 ```json
 // ~/Library/Application Support/Claude/claude_desktop_config.json

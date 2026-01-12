@@ -1,0 +1,6 @@
+[console_scripts]
+minicrit = minicrit.cli:main
+minicrit-server = minicrit.mcp.server_http:main
+
+[mcp.servers]
+minicrit = minicrit.mcp.server:main
