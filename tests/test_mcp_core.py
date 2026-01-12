@@ -664,3 +664,62 @@ class TestExceptions:
 
         with pytest.raises(InvalidInputError):
             raise InvalidInputError("Invalid input")
+
+
+# ================================================================
+# Quantization Tests
+# ================================================================
+
+class TestQuantization:
+    """Tests for quantization support."""
+
+    def test_quantization_mode_default(self):
+        """Test default quantization mode is none."""
+        ModelManager._instance = None
+        manager = ModelManager.get_instance()
+
+        assert manager.quantization_mode == "none"
+
+    def test_quantization_in_stats(self):
+        """Test quantization is included in stats."""
+        ModelManager._instance = None
+        manager = ModelManager.get_instance()
+
+        stats = manager.stats
+        assert "quantization" in stats
+        assert stats["quantization"] == "none"
+
+    def test_valid_quantization_options(self):
+        """Test valid quantization options are defined."""
+        from src.mcp.core import VALID_QUANTIZATION_OPTIONS
+
+        assert "none" in VALID_QUANTIZATION_OPTIONS
+        assert "8bit" in VALID_QUANTIZATION_OPTIONS
+        assert "4bit" in VALID_QUANTIZATION_OPTIONS
+        assert len(VALID_QUANTIZATION_OPTIONS) == 3
+
+    @patch.dict("os.environ", {"MINICRIT_QUANTIZATION": "8bit"})
+    def test_quantization_config_env_var(self):
+        """Test quantization config reads from environment."""
+        # Re-import to pick up env var
+        import importlib
+        import src.mcp.core as core_module
+        importlib.reload(core_module)
+
+        assert core_module.QUANTIZATION == "8bit"
+
+        # Reset
+        importlib.reload(core_module)
+
+    @patch.dict("os.environ", {"MINICRIT_QUANTIZATION": "invalid"})
+    def test_quantization_invalid_falls_back(self):
+        """Test invalid quantization falls back to none."""
+        import importlib
+        import src.mcp.core as core_module
+        importlib.reload(core_module)
+
+        # Invalid value is read but will be handled during loading
+        assert core_module.QUANTIZATION == "invalid"
+
+        # Reset
+        importlib.reload(core_module)

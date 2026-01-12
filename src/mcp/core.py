@@ -35,6 +35,10 @@ MAX_LENGTH = int(os.environ.get("MINICRIT_MAX_LENGTH", "512"))
 INFERENCE_TIMEOUT = int(os.environ.get("MINICRIT_INFERENCE_TIMEOUT", "120"))  # seconds
 LOG_LEVEL = os.environ.get("MINICRIT_LOG_LEVEL", "INFO")
 
+# Quantization configuration (none, 8bit, 4bit)
+QUANTIZATION = os.environ.get("MINICRIT_QUANTIZATION", "none").lower()
+VALID_QUANTIZATION_OPTIONS = ["none", "8bit", "4bit"]
+
 # CORS configuration
 CORS_ORIGINS = os.environ.get(
     "MINICRIT_CORS_ORIGINS",
@@ -102,6 +106,239 @@ class InvalidInputError(ValueError):
     pass
 
 
+class InputSanitizationError(InvalidInputError):
+    """Raised when input contains potentially malicious content."""
+    pass
+
+
+# ================================================================
+# Input Sanitizer (Security Hardening)
+# ================================================================
+
+class InputSanitizer:
+    """Input sanitizer for security hardening.
+
+    Validates and sanitizes user inputs to prevent prompt injection
+    attacks and other malicious content.
+
+    Example:
+        >>> sanitizer = InputSanitizer()
+        >>> clean_rationale = sanitizer.validate_rationale("AAPL is bullish...")
+        >>> clean_domain = sanitizer.validate_domain("trading")
+    """
+
+    # Maximum lengths
+    MAX_RATIONALE_LENGTH = 4096
+    MAX_CONTEXT_LENGTH = 4096
+    MIN_RATIONALE_LENGTH = 10
+
+    # Injection patterns to reject (case-insensitive)
+    INJECTION_PATTERNS = [
+        r"ignore\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|text)",
+        r"disregard\s+(all\s+)?(previous|prior|above)",
+        r"forget\s+(everything|all|previous)",
+        r"system\s*:\s*",
+        r"<\|?(system|assistant|user|im_start|im_end)\|?>",
+        r"###\s*(system|instruction|prompt)",
+        r"\[INST\]",
+        r"\[/INST\]",
+        r"<<SYS>>",
+        r"<</SYS>>",
+        r"you\s+are\s+(now\s+)?a\s+(new\s+)?(ai|assistant|chatbot)",
+        r"new\s+instructions?\s*:",
+        r"override\s+(instructions?|prompts?|system)",
+        r"jailbreak",
+        r"dan\s+mode",
+        r"developer\s+mode",
+        r"ignore\s+safety",
+        r"bypass\s+(filter|safety|restriction)",
+    ]
+
+    # Control characters to strip (keep basic whitespace)
+    CONTROL_CHAR_PATTERN = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]')
+
+    def __init__(self):
+        """Initialize the sanitizer with compiled patterns."""
+        self._logger = logging.getLogger("minicrit.input_sanitizer")
+        self._injection_regex = re.compile(
+            '|'.join(self.INJECTION_PATTERNS),
+            re.IGNORECASE
+        )
+
+    def validate_rationale(self, rationale: str) -> str:
+        """Validate and sanitize rationale input.
+
+        Args:
+            rationale: The rationale text to validate.
+
+        Returns:
+            Sanitized rationale string.
+
+        Raises:
+            InvalidInputError: If rationale is empty or too short.
+            InputSanitizationError: If rationale contains injection patterns.
+        """
+        if rationale is None:
+            raise InvalidInputError("Rationale cannot be None")
+
+        # Strip control characters
+        clean = self._strip_control_chars(rationale)
+
+        # Strip whitespace
+        clean = clean.strip()
+
+        if not clean:
+            raise InvalidInputError("Rationale cannot be empty")
+
+        if len(clean) < self.MIN_RATIONALE_LENGTH:
+            raise InvalidInputError(
+                f"Rationale must be at least {self.MIN_RATIONALE_LENGTH} characters"
+            )
+
+        if len(clean) > self.MAX_RATIONALE_LENGTH:
+            raise InvalidInputError(
+                f"Rationale cannot exceed {self.MAX_RATIONALE_LENGTH} characters "
+                f"(got {len(clean)})"
+            )
+
+        # Check for injection patterns
+        self._check_injection(clean, "rationale")
+
+        return clean
+
+    def validate_domain(self, domain: str) -> str:
+        """Validate domain input against allowed list.
+
+        Args:
+            domain: The domain to validate.
+
+        Returns:
+            Validated domain string.
+
+        Raises:
+            InvalidInputError: If domain is not in allowed list.
+        """
+        if domain is None:
+            return "general"
+
+        clean = str(domain).strip().lower()
+
+        if not clean:
+            return "general"
+
+        if clean not in DOMAINS:
+            raise InvalidInputError(
+                f"Invalid domain: '{clean}'. Must be one of: {', '.join(DOMAINS)}"
+            )
+
+        return clean
+
+    def validate_context(self, context: Optional[str]) -> Optional[str]:
+        """Validate and sanitize context input.
+
+        Args:
+            context: The context text to validate (can be None).
+
+        Returns:
+            Sanitized context string or None.
+
+        Raises:
+            InputSanitizationError: If context contains injection patterns.
+        """
+        if context is None:
+            return None
+
+        # Strip control characters
+        clean = self._strip_control_chars(context)
+
+        # Strip whitespace
+        clean = clean.strip()
+
+        if not clean:
+            return None
+
+        if len(clean) > self.MAX_CONTEXT_LENGTH:
+            raise InvalidInputError(
+                f"Context cannot exceed {self.MAX_CONTEXT_LENGTH} characters "
+                f"(got {len(clean)})"
+            )
+
+        # Check for injection patterns
+        self._check_injection(clean, "context")
+
+        return clean
+
+    def _strip_control_chars(self, text: str) -> str:
+        """Remove control characters from text.
+
+        Keeps newlines, tabs, and carriage returns for formatting.
+
+        Args:
+            text: Input text.
+
+        Returns:
+            Text with control characters removed.
+        """
+        return self.CONTROL_CHAR_PATTERN.sub('', text)
+
+    def _check_injection(self, text: str, field_name: str) -> None:
+        """Check text for injection patterns.
+
+        Args:
+            text: Text to check.
+            field_name: Name of field for error message.
+
+        Raises:
+            InputSanitizationError: If injection pattern detected.
+        """
+        match = self._injection_regex.search(text)
+        if match:
+            self._logger.warning(
+                f"Injection pattern detected in {field_name}: '{match.group()[:50]}'"
+            )
+            raise InputSanitizationError(
+                f"Input contains potentially malicious content in {field_name}"
+            )
+
+    def sanitize_all(
+        self,
+        rationale: str,
+        domain: str = "general",
+        context: Optional[str] = None,
+    ) -> tuple[str, str, Optional[str]]:
+        """Validate and sanitize all inputs at once.
+
+        Args:
+            rationale: The rationale to validate.
+            domain: The domain to validate.
+            context: Optional context to validate.
+
+        Returns:
+            Tuple of (sanitized_rationale, sanitized_domain, sanitized_context).
+
+        Raises:
+            InvalidInputError: If validation fails.
+            InputSanitizationError: If injection detected.
+        """
+        clean_rationale = self.validate_rationale(rationale)
+        clean_domain = self.validate_domain(domain)
+        clean_context = self.validate_context(context)
+
+        return clean_rationale, clean_domain, clean_context
+
+
+# Global sanitizer instance
+_input_sanitizer: Optional[InputSanitizer] = None
+
+
+def get_input_sanitizer() -> InputSanitizer:
+    """Get the global InputSanitizer instance."""
+    global _input_sanitizer
+    if _input_sanitizer is None:
+        _input_sanitizer = InputSanitizer()
+    return _input_sanitizer
+
+
 # ================================================================
 # Thread-Safe Model Manager
 # ================================================================
@@ -148,6 +385,7 @@ class ModelManager:
         self._is_loading = False
         self._load_error: Optional[Exception] = None
         self._device: Optional[str] = None
+        self._quantization_mode: str = "none"
         self._stats = {
             "total_requests": 0,
             "total_tokens": 0,
@@ -169,9 +407,16 @@ class ModelManager:
         return self._device
 
     @property
+    def quantization_mode(self) -> str:
+        """Get quantization mode (none, 8bit, 4bit)."""
+        return self._quantization_mode
+
+    @property
     def stats(self) -> dict:
         """Get usage statistics."""
-        return self._stats.copy()
+        stats = self._stats.copy()
+        stats["quantization"] = self._quantization_mode
+        return stats
 
     def get_model(self, timeout: Optional[float] = None) -> tuple[Any, Any]:
         """Get model and tokenizer, loading if necessary.
@@ -226,7 +471,11 @@ class ModelManager:
             return self._model, self._tokenizer
 
     def _load_model_sync(self, timeout: Optional[float] = None) -> None:
-        """Load model synchronously."""
+        """Load model synchronously with optional quantization.
+
+        Supports 8-bit and 4-bit quantization via bitsandbytes library.
+        Falls back to fp16/bf16 if quantization library not available.
+        """
         if self._model is not None:
             return
 
@@ -236,14 +485,32 @@ class ModelManager:
 
         self._is_loading = True
         self._load_error = None
+        self._quantization_mode = "none"
 
         try:
             self._logger.info(f"Loading base model: {BASE_MODEL_ID}")
             self._logger.info(f"Loading adapter: {ADAPTER_ID}")
 
             import torch
-            from transformers import AutoTokenizer, AutoModelForCausalLM
+            from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
             from peft import PeftModel
+
+            # Check quantization configuration
+            quantize = QUANTIZATION if QUANTIZATION in VALID_QUANTIZATION_OPTIONS else "none"
+
+            # Check if bitsandbytes is available for quantization
+            bnb_available = False
+            if quantize in ["8bit", "4bit"]:
+                try:
+                    import bitsandbytes
+                    bnb_available = True
+                    self._logger.info(f"bitsandbytes available, using {quantize} quantization")
+                except ImportError:
+                    self._logger.warning(
+                        f"bitsandbytes not installed, falling back to fp16. "
+                        f"Install with: pip install bitsandbytes>=0.41.0"
+                    )
+                    quantize = "none"
 
             # Determine device
             if DEVICE == "auto":
@@ -251,13 +518,23 @@ class ModelManager:
                     device = "cuda"
                 elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
                     device = "mps"
+                    # MPS doesn't support quantization
+                    if quantize != "none":
+                        self._logger.warning("MPS device doesn't support quantization, using fp16")
+                        quantize = "none"
                 else:
                     device = "cpu"
+                    # CPU quantization requires specific setup
+                    if quantize != "none":
+                        self._logger.warning("CPU quantization not recommended, using fp32")
+                        quantize = "none"
             else:
                 device = DEVICE
 
             self._logger.info(f"Using device: {device}")
+            self._logger.info(f"Quantization mode: {quantize}")
             self._device = device
+            self._quantization_mode = quantize
 
             # Load tokenizer
             self._tokenizer = AutoTokenizer.from_pretrained(
@@ -267,16 +544,49 @@ class ModelManager:
             if self._tokenizer.pad_token is None:
                 self._tokenizer.pad_token = self._tokenizer.eos_token
 
-            # Load base model
+            # Load base model with quantization if enabled
             self._logger.info("Loading base model weights...")
-            dtype = torch.float16 if device == "mps" else torch.bfloat16
 
-            base_model = AutoModelForCausalLM.from_pretrained(
-                BASE_MODEL_ID,
-                torch_dtype=dtype,
-                trust_remote_code=True,
-            )
-            base_model = base_model.to(device)
+            if quantize == "8bit" and bnb_available:
+                # 8-bit quantization
+                quantization_config = BitsAndBytesConfig(
+                    load_in_8bit=True,
+                    llm_int8_threshold=6.0,
+                )
+                base_model = AutoModelForCausalLM.from_pretrained(
+                    BASE_MODEL_ID,
+                    quantization_config=quantization_config,
+                    device_map="auto",
+                    trust_remote_code=True,
+                )
+                self._logger.info("Loaded model with 8-bit quantization")
+
+            elif quantize == "4bit" and bnb_available:
+                # 4-bit quantization (NF4)
+                quantization_config = BitsAndBytesConfig(
+                    load_in_4bit=True,
+                    bnb_4bit_compute_dtype=torch.bfloat16,
+                    bnb_4bit_use_double_quant=True,
+                    bnb_4bit_quant_type="nf4",
+                )
+                base_model = AutoModelForCausalLM.from_pretrained(
+                    BASE_MODEL_ID,
+                    quantization_config=quantization_config,
+                    device_map="auto",
+                    trust_remote_code=True,
+                )
+                self._logger.info("Loaded model with 4-bit NF4 quantization")
+
+            else:
+                # Standard fp16/bf16 loading
+                dtype = torch.float16 if device == "mps" else torch.bfloat16
+                base_model = AutoModelForCausalLM.from_pretrained(
+                    BASE_MODEL_ID,
+                    torch_dtype=dtype,
+                    trust_remote_code=True,
+                )
+                base_model = base_model.to(device)
+                self._logger.info(f"Loaded model with {dtype}")
 
             # Apply LoRA adapter
             self._logger.info("Applying LoRA adapter...")
@@ -365,38 +675,43 @@ class CritiqueGenerator:
         >>> result = await generator.generate_async("AAPL is bullish...", domain="trading")
     """
 
-    def __init__(self, model_manager: Optional[ModelManager] = None):
+    def __init__(
+        self,
+        model_manager: Optional[ModelManager] = None,
+        sanitizer: Optional[InputSanitizer] = None,
+    ):
         """Initialize critique generator.
 
         Args:
             model_manager: Optional ModelManager instance.
                           Uses singleton if not provided.
+            sanitizer: Optional InputSanitizer instance.
+                      Uses global instance if not provided.
         """
         self._manager = model_manager or ModelManager.get_instance()
+        self._sanitizer = sanitizer or get_input_sanitizer()
         self._logger = logging.getLogger("minicrit.critique_generator")
         self._executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="inference")
 
-    def validate_input(self, rationale: str, domain: str) -> None:
-        """Validate input parameters.
+    def validate_input(self, rationale: str, domain: str) -> tuple[str, str]:
+        """Validate and sanitize input parameters.
+
+        Uses InputSanitizer to validate inputs and check for injection attacks.
 
         Args:
             rationale: The rationale to validate.
             domain: The domain context.
 
+        Returns:
+            Tuple of (sanitized_rationale, sanitized_domain).
+
         Raises:
             InvalidInputError: If validation fails.
+            InputSanitizationError: If injection detected.
         """
-        if not rationale or not rationale.strip():
-            raise InvalidInputError("Rationale cannot be empty")
-
-        if len(rationale) < 10:
-            raise InvalidInputError("Rationale must be at least 10 characters")
-
-        if len(rationale) > 10000:
-            raise InvalidInputError("Rationale cannot exceed 10000 characters")
-
-        if domain not in DOMAINS:
-            raise InvalidInputError(f"Invalid domain: {domain}. Must be one of: {DOMAINS}")
+        clean_rationale = self._sanitizer.validate_rationale(rationale)
+        clean_domain = self._sanitizer.validate_domain(domain)
+        return clean_rationale, clean_domain
 
     def generate(
         self,
@@ -420,17 +735,20 @@ class CritiqueGenerator:
 
         Raises:
             InvalidInputError: If input validation fails.
+            InputSanitizationError: If injection detected.
             InferenceTimeoutError: If inference times out.
             InferenceError: If inference fails.
         """
-        self.validate_input(rationale, domain)
+        # Sanitize all inputs
+        clean_rationale, clean_domain = self.validate_input(rationale, domain)
+        clean_context = self._sanitizer.validate_context(context)
 
         timeout = timeout or INFERENCE_TIMEOUT
 
         try:
             future = self._executor.submit(
                 self._generate_impl,
-                rationale, domain, context, request_id
+                clean_rationale, clean_domain, clean_context, request_id
             )
             return future.result(timeout=timeout)
         except FuturesTimeoutError:
@@ -455,8 +773,16 @@ class CritiqueGenerator:
 
         Returns:
             CritiqueResult with validation results.
+
+        Raises:
+            InvalidInputError: If input validation fails.
+            InputSanitizationError: If injection detected.
+            InferenceTimeoutError: If inference times out.
+            InferenceError: If inference fails.
         """
-        self.validate_input(rationale, domain)
+        # Sanitize all inputs
+        clean_rationale, clean_domain = self.validate_input(rationale, domain)
+        clean_context = self._sanitizer.validate_context(context)
 
         timeout = timeout or INFERENCE_TIMEOUT
 
@@ -466,7 +792,7 @@ class CritiqueGenerator:
             result = await asyncio.wait_for(
                 loop.run_in_executor(
                     self._executor,
-                    lambda: self._generate_impl(rationale, domain, context, request_id)
+                    lambda: self._generate_impl(clean_rationale, clean_domain, clean_context, request_id)
                 ),
                 timeout=timeout
             )

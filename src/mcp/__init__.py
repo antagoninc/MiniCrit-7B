@@ -48,16 +48,19 @@ from .core import (
     RateLimiter,
     GracefulShutdown,
     Severity,
+    InputSanitizer,
     # Exceptions
     ModelNotLoadedError,
     ModelLoadError,
     InferenceTimeoutError,
     InferenceError,
     InvalidInputError,
+    InputSanitizationError,
     # Functions
     get_model_manager,
     get_critique_generator,
     get_cors_origins,
+    get_input_sanitizer,
     # Constants
     DOMAINS,
 )
@@ -70,16 +73,19 @@ __all__ = [
     "RateLimiter",
     "GracefulShutdown",
     "Severity",
+    "InputSanitizer",
     # Exceptions
     "ModelNotLoadedError",
     "ModelLoadError",
     "InferenceTimeoutError",
     "InferenceError",
     "InvalidInputError",
+    "InputSanitizationError",
     # Functions
     "get_model_manager",
     "get_critique_generator",
     "get_cors_origins",
+    "get_input_sanitizer",
     # Constants
     "DOMAINS",
 ]

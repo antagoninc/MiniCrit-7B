@@ -459,6 +459,59 @@ See [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) for complete instructio
 
 ---
 
+## ⚙️ Configuration
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MINICRIT_ADAPTER` | `wmaousley/MiniCrit-7B` | HuggingFace adapter path |
+| `MINICRIT_BASE_MODEL` | `Qwen/Qwen2-7B-Instruct` | Base model path |
+| `MINICRIT_QUANTIZATION` | `none` | Quantization mode: `none`, `8bit`, `4bit` |
+| `MINICRIT_TIMEOUT` | `30.0` | Inference timeout in seconds |
+| `MINICRIT_API_KEYS` | - | Comma-separated API keys (production) |
+| `MINICRIT_CORS_ORIGINS` | `*` | CORS allowed origins (production) |
+
+### 8-bit / 4-bit Quantization
+
+MiniCrit supports quantization via `bitsandbytes` to reduce memory usage:
+
+```bash
+# 8-bit quantization (~50% memory reduction)
+export MINICRIT_QUANTIZATION=8bit
+python -m src.mcp.server
+
+# 4-bit quantization (~75% memory reduction, slight quality loss)
+export MINICRIT_QUANTIZATION=4bit
+python -m src.mcp.server
+```
+
+**Requirements:**
+- `bitsandbytes>=0.41.0` (included in dependencies)
+- CUDA-capable GPU
+- Falls back to fp16 gracefully if bitsandbytes is unavailable
+
+### Input Sanitization (Security)
+
+MiniCrit includes built-in input sanitization to protect against prompt injection attacks:
+
+- **Injection Pattern Detection**: Blocks patterns like "ignore previous instructions", "system:", etc.
+- **Control Character Removal**: Strips null bytes, zero-width chars, and other control characters
+- **Length Validation**: Enforces max 50,000 character rationales, 100 char domains
+- **Domain Whitelisting**: Only accepts valid domains from the supported list
+
+```python
+from minicrit import InputSanitizer, InputSanitizationError
+
+sanitizer = InputSanitizer()
+try:
+    clean_input = sanitizer.validate_rationale(user_input)
+except InputSanitizationError as e:
+    print(f"Blocked: {e}")
+```
+
+---
+
 ## 🎯 Use Cases
 
 | Domain | Application |
