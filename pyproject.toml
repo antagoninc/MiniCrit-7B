@@ -1,0 +1,135 @@
+# ================================================================
+# MiniCrit - PyPI Package Configuration
+# Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
+# Co-Founder & CEO: William Alexander Ousley (Alex Ousley)
+# Co-Founder & CTO: Jacqueline Villamor Ousley (Jacque Ousley) TS/SCI
+# ================================================================
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "minicrit"
+version = "0.1.0"
+description = "Adversarial AI validation for autonomous systems - catch reasoning flaws before they become failures"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.9"
+authors = [
+    {name = "William Alexander Ousley", email = "founders@antagon.ai"},
+    {name = "Jacqueline Villamor Ousley", email = "founders@antagon.ai"},
+]
+maintainers = [
+    {name = "Antagon Inc.", email = "founders@antagon.ai"},
+]
+keywords = [
+    "ai-safety",
+    "adversarial-ai",
+    "llm",
+    "validation",
+    "trading",
+    "defense",
+    "reasoning",
+    "critique",
+    "mcp",
+    "model-context-protocol",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Security",
+]
+
+dependencies = [
+    "torch>=2.0.0",
+    "transformers>=4.40.0",
+    "peft>=0.10.0",
+    "accelerate>=0.25.0",
+]
+
+[project.optional-dependencies]
+mcp = [
+    "mcp>=1.0.0",
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+]
+server = [
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "python-jose>=3.3.0",
+]
+training = [
+    "datasets>=2.16.0",
+    "wandb>=0.16.0",
+    "trl>=0.7.0",
+    "anthropic>=0.18.0",
+]
+eval = [
+    "rouge-score>=0.1.2",
+    "bert-score>=0.3.13",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+]
+all = [
+    "minicrit[mcp,server,training,eval]",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://antagon.ai"
+Documentation = "https://github.com/antagoninc/MiniCrit-7B/tree/main/docs"
+Repository = "https://github.com/antagoninc/MiniCrit-7B"
+Issues = "https://github.com/antagoninc/MiniCrit-7B/issues"
+Changelog = "https://github.com/antagoninc/MiniCrit-7B/blob/main/CHANGELOG.md"
+
+[project.scripts]
+minicrit = "minicrit.cli:main"
+minicrit-server = "minicrit.mcp.server_http:main"
+
+[project.entry-points."mcp.servers"]
+minicrit = "minicrit.mcp.server:main"
+
+[tool.setuptools]
+packages = ["minicrit", "minicrit.mcp", "minicrit.benchmark", "minicrit.training"]
+package-dir = {"minicrit" = "src"}
+
+[tool.setuptools.package-data]
+minicrit = ["py.typed"]
+
+[tool.black]
+line-length = 100
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
