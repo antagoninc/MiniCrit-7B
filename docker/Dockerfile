@@ -81,7 +81,7 @@ CMD ["python", "-m", "src.mcp.server_prod"]
 # Multi-stage build for smaller image (CPU-only version)
 # ================================================================
 
-FROM python:3.11-slim AS cpu
+FROM python:3.14-slim AS cpu
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
