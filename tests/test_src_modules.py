@@ -19,6 +19,7 @@ import pandas as pd
 
 from src.config import TrainingConfig, LoRAConfig, load_config
 from src.data import find_columns, validate_dataset
+
 # Note: find_latest_checkpoint is in src/training.py (file), not src/training/ (package)
 # Import from the correct module - training_utils.py in root has the function
 from training_utils import find_latest_checkpoint
@@ -77,11 +78,14 @@ class TestLoadConfig:
 
     def test_env_override(self) -> None:
         """Test environment variable overrides."""
-        with patch.dict(os.environ, {
-            "MINICRIT_MODEL": "test-model",
-            "MINICRIT_LR": "1e-5",
-            "MINICRIT_BATCH_SIZE": "2",
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "MINICRIT_MODEL": "test-model",
+                "MINICRIT_LR": "1e-5",
+                "MINICRIT_BATCH_SIZE": "2",
+            },
+        ):
             config = load_config()
             assert config.model_name == "test-model"
             assert config.learning_rate == 1e-5
@@ -226,6 +230,7 @@ class TestDataDeduplication:
     def test_compute_text_hash(self) -> None:
         """Test hash computation."""
         from src.data import compute_text_hash
+
         hash1 = compute_text_hash("hello world")
         hash2 = compute_text_hash("hello world")
         hash3 = compute_text_hash("different text")
@@ -235,6 +240,7 @@ class TestDataDeduplication:
     def test_hash_normalization(self) -> None:
         """Test that hashes are normalized."""
         from src.data import compute_text_hash
+
         # Multiple spaces should be normalized
         hash1 = compute_text_hash("hello  world")
         hash2 = compute_text_hash("hello world")
@@ -243,6 +249,7 @@ class TestDataDeduplication:
     def test_hash_case_insensitive(self) -> None:
         """Test case insensitivity."""
         from src.data import compute_text_hash
+
         hash1 = compute_text_hash("Hello World")
         hash2 = compute_text_hash("hello world")
         assert hash1 == hash2
@@ -254,25 +261,27 @@ class TestRebuttalLengthValidation:
     def test_min_word_constant(self) -> None:
         """Test MIN_REBUTTAL_WORDS constant."""
         from src.data import MIN_REBUTTAL_WORDS
+
         assert MIN_REBUTTAL_WORDS == 50
 
     def test_validate_length_accepts_long(self) -> None:
         """Test that long rebuttals pass."""
         from src.data import validate_rebuttal_length
-        df = pd.DataFrame({
-            "text": ["input"],
-            "rebuttal": ["word " * 60]  # 60 words
-        })
+
+        df = pd.DataFrame({"text": ["input"], "rebuttal": ["word " * 60]})  # 60 words
         result = validate_rebuttal_length(df, "rebuttal", min_words=50)
         assert len(result) == 1
 
     def test_validate_length_rejects_short(self) -> None:
         """Test that short rebuttals are filtered."""
         from src.data import validate_rebuttal_length
-        df = pd.DataFrame({
-            "text": ["input1", "input2"],
-            "rebuttal": ["word " * 10, "word " * 60]  # 10 and 60 words
-        })
+
+        df = pd.DataFrame(
+            {
+                "text": ["input1", "input2"],
+                "rebuttal": ["word " * 10, "word " * 60],  # 10 and 60 words
+            }
+        )
         result = validate_rebuttal_length(df, "rebuttal", min_words=50)
         assert len(result) == 1
 
@@ -283,10 +292,13 @@ class TestTrainValSplit:
     def test_split_creates_two_sets(self) -> None:
         """Test that split creates train and val sets."""
         from src.data import create_train_val_split
-        df = pd.DataFrame({
-            "text": [f"text{i}" for i in range(1000)],
-            "rebuttal": [f"rebuttal{i}" for i in range(1000)]
-        })
+
+        df = pd.DataFrame(
+            {
+                "text": [f"text{i}" for i in range(1000)],
+                "rebuttal": [f"rebuttal{i}" for i in range(1000)],
+            }
+        )
         train_df, val_df = create_train_val_split(df, val_ratio=0.1)
         assert len(train_df) == 900
         assert len(val_df) == 100
@@ -294,10 +306,13 @@ class TestTrainValSplit:
     def test_split_minimum_validation(self) -> None:
         """Test minimum validation set size (hardcoded to 100)."""
         from src.data import create_train_val_split
-        df = pd.DataFrame({
-            "text": [f"text{i}" for i in range(200)],
-            "rebuttal": [f"rebuttal{i}" for i in range(200)]
-        })
+
+        df = pd.DataFrame(
+            {
+                "text": [f"text{i}" for i in range(200)],
+                "rebuttal": [f"rebuttal{i}" for i in range(200)],
+            }
+        )
         # With 5% of 200 = 10, but minimum is 100 (hardcoded)
         train_df, val_df = create_train_val_split(df, val_ratio=0.05)
         assert len(val_df) == 100

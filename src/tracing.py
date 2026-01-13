@@ -164,7 +164,9 @@ def init_tracing(
         return True
 
     except ImportError as e:
-        logger.warning(f"OpenTelemetry not installed: {e}. Install with: pip install minicrit[observability]")
+        logger.warning(
+            f"OpenTelemetry not installed: {e}. Install with: pip install minicrit[observability]"
+        )
         _tracer = NoOpTracer()
         _initialized = True
         return False
@@ -239,6 +241,7 @@ def trace_function(
         ... def generate_critique(rationale: str) -> str:
         ...     return "critique"
     """
+
     def decorator(func: F) -> F:
         span_name = name or func.__name__
 
@@ -253,6 +256,7 @@ def trace_function(
                     span.record_exception(e)
                     try:
                         from opentelemetry.trace import StatusCode
+
                         span.set_status(StatusCode.ERROR, str(e))
                     except ImportError:
                         pass
@@ -276,6 +280,7 @@ def trace_async_function(
     Returns:
         Decorated async function.
     """
+
     def decorator(func: F) -> F:
         span_name = name or func.__name__
 
@@ -290,6 +295,7 @@ def trace_async_function(
                     span.record_exception(e)
                     try:
                         from opentelemetry.trace import StatusCode
+
                         span.set_status(StatusCode.ERROR, str(e))
                     except ImportError:
                         pass
@@ -308,6 +314,7 @@ def add_span_attributes(attributes: dict[str, Any]) -> None:
     """
     try:
         from opentelemetry import trace
+
         span = trace.get_current_span()
         if span.is_recording():
             for key, value in attributes.items():
@@ -324,6 +331,7 @@ def record_exception(exception: Exception) -> None:
     """
     try:
         from opentelemetry import trace
+
         span = trace.get_current_span()
         if span.is_recording():
             span.record_exception(exception)

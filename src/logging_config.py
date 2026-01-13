@@ -24,7 +24,7 @@ import sys
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Optional
 
 # Default configuration
 DEFAULT_LOG_LEVEL = "INFO"
@@ -71,11 +71,28 @@ class StructuredFormatter(logging.Formatter):
         # Add extra fields
         for key, value in record.__dict__.items():
             if key not in {
-                "name", "msg", "args", "created", "filename", "funcName",
-                "levelname", "levelno", "lineno", "module", "msecs",
-                "pathname", "process", "processName", "relativeCreated",
-                "stack_info", "exc_info", "exc_text", "thread", "threadName",
-                "message", "taskName",
+                "name",
+                "msg",
+                "args",
+                "created",
+                "filename",
+                "funcName",
+                "levelname",
+                "levelno",
+                "lineno",
+                "module",
+                "msecs",
+                "pathname",
+                "process",
+                "processName",
+                "relativeCreated",
+                "stack_info",
+                "exc_info",
+                "exc_text",
+                "thread",
+                "threadName",
+                "message",
+                "taskName",
             }:
                 try:
                     json.dumps(value)  # Check if serializable
@@ -93,10 +110,10 @@ class ColoredFormatter(logging.Formatter):
     """
 
     COLORS = {
-        "DEBUG": "\033[36m",     # Cyan
-        "INFO": "\033[32m",      # Green
-        "WARNING": "\033[33m",   # Yellow
-        "ERROR": "\033[31m",     # Red
+        "DEBUG": "\033[36m",  # Cyan
+        "INFO": "\033[32m",  # Green
+        "WARNING": "\033[33m",  # Yellow
+        "ERROR": "\033[31m",  # Red
         "CRITICAL": "\033[35m",  # Magenta
     }
     RESET = "\033[0m"
@@ -206,9 +223,7 @@ def setup_logging(
         if sys.stdout.isatty():
             console_handler.setFormatter(ColoredFormatter())
         else:
-            console_handler.setFormatter(
-                logging.Formatter(DEFAULT_LOG_FORMAT, DEFAULT_DATE_FORMAT)
-            )
+            console_handler.setFormatter(logging.Formatter(DEFAULT_LOG_FORMAT, DEFAULT_DATE_FORMAT))
 
     root_logger.addHandler(console_handler)
 
@@ -273,7 +288,7 @@ class LogContext:
             **kwargs: Key-value pairs to add to log records.
         """
         self.context = kwargs
-        self.old_factory = None
+        self.old_factory: Optional[Callable[..., logging.LogRecord]] = None
 
     def __enter__(self) -> "LogContext":
         """Enter the context, adding fields to log records."""

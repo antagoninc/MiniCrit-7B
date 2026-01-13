@@ -37,6 +37,7 @@ from src.mcp.core import (
 # ModelManager Tests
 # ================================================================
 
+
 class TestModelManager:
     """Tests for ModelManager class."""
 
@@ -246,6 +247,7 @@ class TestModelManagerThreadSafety:
 # CritiqueGenerator Tests
 # ================================================================
 
+
 class TestCritiqueGenerator:
     """Tests for CritiqueGenerator class."""
 
@@ -323,9 +325,7 @@ class TestCritiqueGenerator:
         """Test parsing medium severity."""
         generator = CritiqueGenerator()
 
-        severity, flags = generator._parse_critique(
-            "There is a concern about the missing data"
-        )
+        severity, flags = generator._parse_critique("There is a concern about the missing data")
 
         assert severity == Severity.MEDIUM
         assert "notable_concern" in flags
@@ -386,15 +386,13 @@ class TestCritiqueGeneratorAsync:
         generator = CritiqueGenerator(model_manager=mock_manager)
 
         with pytest.raises(InferenceTimeoutError):
-            await generator.generate_async(
-                "Test rationale for timeout",
-                timeout=0.1
-            )
+            await generator.generate_async("Test rationale for timeout", timeout=0.1)
 
 
 # ================================================================
 # RateLimiter Tests
 # ================================================================
+
 
 class TestRateLimiter:
     """Tests for RateLimiter class."""
@@ -510,6 +508,7 @@ class TestRateLimiter:
 # CritiqueResult Tests
 # ================================================================
 
+
 class TestCritiqueResult:
     """Tests for CritiqueResult dataclass."""
 
@@ -555,6 +554,7 @@ class TestCritiqueResult:
 # Severity Tests
 # ================================================================
 
+
 class TestSeverity:
     """Tests for Severity enum."""
 
@@ -575,6 +575,7 @@ class TestSeverity:
 # ================================================================
 # GracefulShutdown Tests
 # ================================================================
+
 
 class TestGracefulShutdown:
     """Tests for GracefulShutdown class."""
@@ -598,6 +599,7 @@ class TestGracefulShutdown:
 # ================================================================
 # Convenience Function Tests
 # ================================================================
+
 
 class TestConvenienceFunctions:
     """Tests for convenience functions."""
@@ -637,6 +639,7 @@ class TestConvenienceFunctions:
 # Exception Tests
 # ================================================================
 
+
 class TestExceptions:
     """Tests for custom exceptions."""
 
@@ -673,6 +676,7 @@ class TestExceptions:
 # Quantization Tests
 # ================================================================
 
+
 class TestQuantization:
     """Tests for quantization support."""
 
@@ -707,6 +711,7 @@ class TestQuantization:
         # Re-import to pick up env var
         import importlib
         import src.mcp.core as core_module
+
         importlib.reload(core_module)
 
         assert core_module.QUANTIZATION == "8bit"
@@ -719,6 +724,7 @@ class TestQuantization:
         """Test invalid quantization falls back to none."""
         import importlib
         import src.mcp.core as core_module
+
         importlib.reload(core_module)
 
         # Invalid value is read but will be handled during loading

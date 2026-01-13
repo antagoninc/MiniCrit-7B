@@ -58,16 +58,18 @@ TEMPERATURE_RANGE = (0.6, 1.0)  # Vary temperature for diversity
 # Data Classes
 # ================================================================
 
+
 @dataclass
 class DPOPair:
     """A single DPO training pair."""
+
     prompt: str
     chosen: str
     rejected: str
     domain: str
     chosen_score: float
     rejected_score: float
-    
+
     def to_dict(self) -> dict:
         return {
             "prompt": self.prompt,
@@ -79,20 +81,22 @@ class DPOPair:
             "timestamp": datetime.utcnow().isoformat(),
         }
 
+
 # ================================================================
 # Critique Generation
 # ================================================================
 
+
 class CritiqueGenerator:
     """Generate multiple critique candidates for DPO."""
-    
+
     def __init__(self, model_path: str, device: str = "auto"):
         print(f"Loading model: {model_path}")
-        
+
         self.tokenizer = AutoTokenizer.from_pretrained(model_path)
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
-        
+
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
             torch_dtype=torch.bfloat16,
@@ -102,7 +106,7 @@ class CritiqueGenerator:
         self.model.eval()
         self.device = next(self.model.parameters()).device
         print(f"Model loaded on {self.device}")
-    
+
     def generate_candidates(
         self,
         rationale: str,
@@ -110,22 +114,22 @@ class CritiqueGenerator:
         num_candidates: int = NUM_CANDIDATES,
     ) -> List[Tuple[str, float]]:
         """Generate multiple critique candidates with varying temperatures."""
-        
+
         prompt = f"### Domain: {domain}\n### Rationale:\n{rationale}\n\n### Critique:\n"
-        
+
         inputs = self.tokenizer(
             prompt,
             return_tensors="pt",
             truncation=True,
             max_length=512,
         ).to(self.device)
-        
+
         candidates = []
-        
+
         for i in range(num_candidates):
             # Vary temperature for diversity
             temp = random.uniform(*TEMPERATURE_RANGE)
-            
+
             with torch.no_grad():
                 outputs = self.model.generate(
                     **inputs,
@@ -136,26 +140,28 @@ class CritiqueGenerator:
                     pad_token_id=self.tokenizer.pad_token_id,
                     eos_token_id=self.tokenizer.eos_token_id,
                 )
-            
+
             critique = self.tokenizer.decode(
-                outputs[0][inputs["input_ids"].shape[1]:],
+                outputs[0][inputs["input_ids"].shape[1] :],
                 skip_special_tokens=True,
             ).strip()
-            
+
             candidates.append((critique, temp))
-        
+
         return candidates
+
 
 # ================================================================
 # Critique Scoring
 # ================================================================
 
+
 def score_critique_rules(critique: str, rationale: str, domain: str) -> float:
     """Rule-based scoring of critique quality."""
     score = 0.5  # Base score
-    
+
     critique_lower = critique.lower()
-    
+
     # Positive signals
     if len(critique) > 100:  # Substantive
         score += 0.1
@@ -165,7 +171,7 @@ def score_critique_rules(critique: str, rationale: str, domain: str) -> float:
         score += 0.05  # Nuanced
     if any(w in critique_lower for w in ["evidence", "data", "support"]):
         score += 0.1  # Evidence-based
-    
+
     # Negative signals
     if len(critique) < 50:
         score -= 0.2  # Too short
@@ -175,18 +181,18 @@ def score_critique_rules(critique: str, rationale: str, domain: str) -> float:
         score -= 0.1  # First person
     if critique_lower.startswith("this is"):
         score -= 0.05  # Weak opening
-    
+
     # Domain-specific
     domain_terms = {
         "trading": ["risk", "return", "volatility", "position", "market"],
         "defense": ["threat", "asset", "mission", "operation"],
         "cybersecurity": ["vulnerability", "attack", "defense", "security"],
     }
-    
+
     if domain in domain_terms:
         term_count = sum(1 for t in domain_terms[domain] if t in critique_lower)
         score += min(term_count * 0.05, 0.15)  # Domain expertise
-    
+
     return max(0.0, min(1.0, score))
 
 
@@ -198,8 +204,9 @@ def score_critique_llm(
     """LLM-based scoring using Claude."""
     try:
         import anthropic
+
         client = anthropic.Anthropic()
-        
+
         prompt = f"""Rate this AI critique on a scale of 0-10.
 
 Original rationale:
@@ -221,13 +228,13 @@ Respond with ONLY a number 0-10, nothing else."""
         response = client.messages.create(
             model="claude-sonnet-4-20250514",
             max_tokens=10,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
         )
-        
+
         score_text = response.content[0].text.strip()
         score = float(score_text) / 10.0
         return max(0.0, min(1.0, score))
-        
+
     except Exception as e:
         print(f"LLM scoring error: {e}", file=sys.stderr)
         return score_critique_rules(critique, rationale, domain)
@@ -244,9 +251,11 @@ def score_critique(
         return score_critique_llm(critique, rationale, domain)
     return score_critique_rules(critique, rationale, domain)
 
+
 # ================================================================
 # DPO Pair Creation
 # ================================================================
+
 
 def create_dpo_pairs(
     candidates: List[Tuple[str, float]],
@@ -255,39 +264,43 @@ def create_dpo_pairs(
     use_llm: bool = False,
 ) -> List[DPOPair]:
     """Create DPO pairs from scored candidates."""
-    
+
     # Score all candidates
     scored = []
     for critique, temp in candidates:
         score = score_critique(critique, rationale, domain, use_llm)
         scored.append((critique, score))
-    
+
     # Sort by score
     scored.sort(key=lambda x: x[1], reverse=True)
-    
+
     # Create pairs: best vs rest
     pairs = []
     best_critique, best_score = scored[0]
-    
+
     prompt = f"### Domain: {domain}\n### Rationale:\n{rationale}\n\n### Critique:\n"
-    
+
     for critique, score in scored[1:]:
         # Only pair if meaningful score difference
         if best_score - score >= 0.1:
-            pairs.append(DPOPair(
-                prompt=prompt,
-                chosen=best_critique,
-                rejected=critique,
-                domain=domain,
-                chosen_score=best_score,
-                rejected_score=score,
-            ))
-    
+            pairs.append(
+                DPOPair(
+                    prompt=prompt,
+                    chosen=best_critique,
+                    rejected=critique,
+                    domain=domain,
+                    chosen_score=best_score,
+                    rejected_score=score,
+                )
+            )
+
     return pairs
+
 
 # ================================================================
 # Main Pipeline
 # ================================================================
+
 
 def main():
     parser = argparse.ArgumentParser(description="Generate DPO preference data")
@@ -298,68 +311,64 @@ def main():
     parser.add_argument("--limit", type=int, default=None, help="Limit examples")
     parser.add_argument("--llm-score", action="store_true", help="Use LLM for scoring")
     parser.add_argument("--candidates", type=int, default=4, help="Candidates per input")
-    
+
     args = parser.parse_args()
-    
+
     print("=" * 60)
     print("🎯 DPO Preference Data Generator")
     print("   Antagon Inc. | MiniCrit Training Pipeline")
     print("=" * 60)
-    
+
     # Load generator
     generator = CritiqueGenerator(args.model, args.device)
-    
+
     # Load input data
     examples = []
-    with open(args.input, 'r') as f:
+    with open(args.input, "r") as f:
         for line in f:
             examples.append(json.loads(line))
-    
+
     if args.limit:
-        examples = examples[:args.limit]
-    
+        examples = examples[: args.limit]
+
     print(f"\nProcessing {len(examples)} examples...")
     print(f"Generating {args.candidates} candidates each")
     print(f"Scoring: {'LLM' if args.llm_score else 'Rules'}")
-    
+
     # Generate pairs
     all_pairs = []
-    
+
     for example in tqdm(examples, desc="Generating DPO pairs"):
         rationale = example.get("input", example.get("rationale", ""))
         domain = example.get("domain", "general")
-        
+
         if not rationale:
             continue
-        
+
         # Generate candidates
-        candidates = generator.generate_candidates(
-            rationale, domain, args.candidates
-        )
-        
+        candidates = generator.generate_candidates(rationale, domain, args.candidates)
+
         # Create pairs
-        pairs = create_dpo_pairs(
-            candidates, rationale, domain, args.llm_score
-        )
-        
+        pairs = create_dpo_pairs(candidates, rationale, domain, args.llm_score)
+
         all_pairs.extend(pairs)
-        
+
         # Rate limiting for LLM scoring
         if args.llm_score:
             time.sleep(0.5)
-    
+
     # Save pairs
-    with open(args.output, 'w') as f:
+    with open(args.output, "w") as f:
         for pair in all_pairs:
             f.write(json.dumps(pair.to_dict()) + "\n")
-    
+
     print(f"\n{'=' * 60}")
     print(f"✅ Complete!")
     print(f"   Input examples: {len(examples)}")
     print(f"   DPO pairs generated: {len(all_pairs)}")
     print(f"   Output: {args.output}")
     print("=" * 60)
-    
+
     # Stats
     if all_pairs:
         avg_chosen = sum(p.chosen_score for p in all_pairs) / len(all_pairs)

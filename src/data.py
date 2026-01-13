@@ -17,7 +17,7 @@ import gc
 import hashlib
 import logging
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import pandas as pd
 from datasets import Dataset, DatasetDict, concatenate_datasets, load_from_disk
@@ -298,7 +298,7 @@ def create_tokenize_function(
     text_col: str,
     rebuttal_col: str,
     max_length: int,
-) -> callable:
+) -> Callable:
     """Create a tokenization function with proper label masking.
 
     Creates a function that tokenizes input-output pairs, masking the
@@ -318,6 +318,7 @@ def create_tokenize_function(
         to -100, which is ignored by the loss function. This ensures the
         model is only trained to generate critiques, not to repeat inputs.
     """
+
     def tokenize_with_masked_labels(
         examples: dict[str, list[str]],
     ) -> dict[str, list[list[int]]]:
@@ -484,9 +485,7 @@ def tokenize_dataset(
     logger.info("Tokenizing dataset with proper label masking...")
     logger.info("(Only critique/rebuttal tokens will be trained on)")
 
-    dataset_tok = tokenize_dataframe(
-        df, tokenizer, text_col, rebuttal_col, max_length, chunk_size
-    )
+    dataset_tok = tokenize_dataframe(df, tokenizer, text_col, rebuttal_col, max_length, chunk_size)
 
     logger.info(f"Tokenized {len(dataset_tok):,} examples")
 
@@ -540,24 +539,16 @@ def tokenize_dataset_with_split(
             logger.info(f"Loading cached datasets from {cache_dir}...")
             train_tok = load_from_disk(train_cache)
             val_tok = load_from_disk(val_cache)
-            logger.info(
-                f"Loaded {len(train_tok):,} train, {len(val_tok):,} validation examples"
-            )
+            logger.info(f"Loaded {len(train_tok):,} train, {len(val_tok):,} validation examples")
             return DatasetDict({"train": train_tok, "validation": val_tok})
 
     logger.info("Tokenizing training data...")
-    train_tok = tokenize_dataframe(
-        train_df, tokenizer, text_col, rebuttal_col, max_length
-    )
+    train_tok = tokenize_dataframe(train_df, tokenizer, text_col, rebuttal_col, max_length)
 
     logger.info("Tokenizing validation data...")
-    val_tok = tokenize_dataframe(
-        val_df, tokenizer, text_col, rebuttal_col, max_length
-    )
+    val_tok = tokenize_dataframe(val_df, tokenizer, text_col, rebuttal_col, max_length)
 
-    logger.info(
-        f"Tokenized {len(train_tok):,} train, {len(val_tok):,} validation examples"
-    )
+    logger.info(f"Tokenized {len(train_tok):,} train, {len(val_tok):,} validation examples")
 
     # Save to cache
     if use_cache and cache_dir:
@@ -606,8 +597,7 @@ def validate_dataset(
     masked_tokens = total_tokens - trainable_tokens
 
     logger.info(
-        f"Example 0: total={total_tokens}, trainable={trainable_tokens}, "
-        f"masked={masked_tokens}"
+        f"Example 0: total={total_tokens}, trainable={trainable_tokens}, " f"masked={masked_tokens}"
     )
 
     if trainable_tokens == 0:

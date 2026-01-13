@@ -206,6 +206,7 @@ class TestRedisRateLimiter:
             # Need to reimport to pick up the mock
             from importlib import reload
             import src.rate_limiting as rl
+
             reload(rl)
 
             limiter = rl.RedisRateLimiter(limit=5, window=60, redis_url="redis://localhost:6379")
@@ -224,6 +225,7 @@ class TestRedisRateLimiter:
         with patch.dict("sys.modules", {"redis": mock_redis_module}):
             from importlib import reload
             import src.rate_limiting as rl
+
             reload(rl)
 
             limiter = rl.RedisRateLimiter(limit=5, window=60)
@@ -284,14 +286,18 @@ class TestGetRateLimiter:
 
     def test_respects_env_vars(self):
         """Test that environment variables are respected."""
-        with patch.dict("os.environ", {
-            "MINICRIT_RATE_LIMIT": "100",
-            "MINICRIT_RATE_WINDOW": "120",
-            "MINICRIT_RATE_LIMIT_BACKEND": "memory",
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "MINICRIT_RATE_LIMIT": "100",
+                "MINICRIT_RATE_WINDOW": "120",
+                "MINICRIT_RATE_LIMIT_BACKEND": "memory",
+            },
+        ):
             reset_rate_limiter()
             # Need to reload module to pick up new env vars
             from src import rate_limiting
+
             rate_limiting.RATE_LIMIT = 100
             rate_limiting.RATE_WINDOW = 120
             rate_limiting._rate_limiter = None

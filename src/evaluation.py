@@ -215,7 +215,7 @@ def generate_critique(
     inputs = {k: v.to(device) for k, v in inputs.items()}
 
     with torch.no_grad():
-        outputs = model.generate(
+        outputs = model.generate(  # type: ignore[operator]
             **inputs,
             max_new_tokens=max_new_tokens,
             temperature=temperature,
@@ -231,7 +231,7 @@ def generate_critique(
     if "### Critique:" in full_output:
         critique = full_output.split("### Critique:")[-1].strip()
     else:
-        critique = full_output[len(prompt):].strip()
+        critique = full_output[len(prompt) :].strip()
 
     return critique
 
@@ -282,9 +282,7 @@ def evaluate_model(
         if not rationale or not reference:
             continue
 
-        critique = generate_critique(
-            model, tokenizer, rationale, max_new_tokens=max_new_tokens
-        )
+        critique = generate_critique(model, tokenizer, rationale, max_new_tokens=max_new_tokens)
 
         predictions.append(critique)
         references.append(reference)
@@ -373,7 +371,7 @@ def load_test_data(data_path: str | Path) -> list[dict[str, str]]:
     if data_path.suffix == ".json":
         with open(data_path) as f:
             data = json.load(f)
-        return data
+        return data  # type: ignore[no-any-return]
 
     elif data_path.suffix == ".csv":
         import pandas as pd
@@ -396,9 +394,11 @@ def load_test_data(data_path: str | Path) -> list[dict[str, str]]:
         if not text_col or not rebuttal_col:
             raise ValueError(f"Could not find required columns in {data_path}")
 
-        return df[[text_col, rebuttal_col]].rename(
-            columns={text_col: "rationale", rebuttal_col: "critique"}
-        ).to_dict("records")
+        return (  # type: ignore[no-any-return]
+            df[[text_col, rebuttal_col]]
+            .rename(columns={text_col: "rationale", rebuttal_col: "critique"})
+            .to_dict("records")
+        )
 
     else:
         raise ValueError(f"Unsupported file format: {data_path.suffix}")

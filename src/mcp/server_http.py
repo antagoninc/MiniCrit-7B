@@ -104,8 +104,10 @@ shutdown_handler = GracefulShutdown(model_manager)
 # Data Models
 # ================================================================
 
+
 class ValidateRequest(BaseModel):
     """Request model for validation."""
+
     rationale: str = Field(
         ...,
         description="The AI reasoning to validate",
@@ -118,6 +120,7 @@ class ValidateRequest(BaseModel):
 
 class BatchItem(BaseModel):
     """Single item in batch request."""
+
     id: str = Field(..., description="Item identifier")
     rationale: str = Field(..., description="The AI reasoning to validate")
     domain: str = Field("general", description="Domain context")
@@ -125,6 +128,7 @@ class BatchItem(BaseModel):
 
 class BatchRequest(BaseModel):
     """Batch validation request."""
+
     items: list[BatchItem] = Field(
         ...,
         description="Items to validate",
@@ -134,6 +138,7 @@ class BatchRequest(BaseModel):
 
 class CritiqueResponse(BaseModel):
     """Response model for critique."""
+
     valid: bool
     severity: str
     critique: str
@@ -148,6 +153,7 @@ class CritiqueResponse(BaseModel):
 # ================================================================
 # Lifespan Management
 # ================================================================
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -206,6 +212,7 @@ app.add_middleware(
 # Authentication
 # ================================================================
 
+
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
     """Verify API key if configured."""
     if API_KEY and x_api_key != API_KEY:
@@ -220,6 +227,7 @@ async def verify_api_key(x_api_key: Optional[str] = Header(None)):
 # ================================================================
 # Request Logging Middleware
 # ================================================================
+
 
 @app.middleware("http")
 async def add_request_id(request: Request, call_next):
@@ -236,6 +244,7 @@ async def add_request_id(request: Request, call_next):
 # ================================================================
 # Endpoints
 # ================================================================
+
 
 @app.get("/health")
 async def health_check():
@@ -345,31 +354,37 @@ async def batch_validate(
                 domain=item.domain,
                 request_id=f"{request_id}-{item.id}",
             )
-            results.append({
-                "id": item.id,
-                "valid": result.valid,
-                "severity": result.severity,
-                "critique": result.critique,
-                "confidence": result.confidence,
-                "flags": result.flags,
-                "domain": result.domain,
-                "latency_ms": result.latency_ms,
-                "timestamp": datetime.utcnow().isoformat() + "Z",
-            })
+            results.append(
+                {
+                    "id": item.id,
+                    "valid": result.valid,
+                    "severity": result.severity,
+                    "critique": result.critique,
+                    "confidence": result.confidence,
+                    "flags": result.flags,
+                    "domain": result.domain,
+                    "latency_ms": result.latency_ms,
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                }
+            )
 
         except (InvalidInputError, ModelLoadError, InferenceTimeoutError, InferenceError) as e:
-            results.append({
-                "id": item.id,
-                "error": str(e),
-                "error_code": type(e).__name__,
-            })
+            results.append(
+                {
+                    "id": item.id,
+                    "error": str(e),
+                    "error_code": type(e).__name__,
+                }
+            )
 
         except MemoryError:
-            results.append({
-                "id": item.id,
-                "error": "Out of memory",
-                "error_code": "MemoryError",
-            })
+            results.append(
+                {
+                    "id": item.id,
+                    "error": "Out of memory",
+                    "error_code": "MemoryError",
+                }
+            )
 
     return {
         "results": results,
@@ -381,6 +396,7 @@ async def batch_validate(
 # ================================================================
 # MCP SSE Endpoint
 # ================================================================
+
 
 @app.get("/sse")
 async def mcp_sse_endpoint():

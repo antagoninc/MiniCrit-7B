@@ -22,10 +22,10 @@ Scripts:
 Usage:
     # Generate hard examples (~$30 for 5K)
     python -m src.training.generate_hard_examples --count 5000
-    
+
     # Generate DPO pairs
     python -m src.training.generate_dpo_data --input eval.jsonl --model minicrit-7b
-    
+
     # Run DPO training
     python -m src.training.train_dpo --model minicrit-7b --data dpo_pairs.jsonl
 """

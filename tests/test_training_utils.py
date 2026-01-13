@@ -64,8 +64,12 @@ def test_get_config_defaults() -> None:
     """Test default configuration values."""
     # Clear any env vars that might interfere
     env_vars_to_clear = [
-        "MINICRIT_MODEL", "MINICRIT_LR", "MINICRIT_BATCH_SIZE",
-        "MINICRIT_DATA_FILE", "MINICRIT_CACHE_DIR", "MINICRIT_OUTPUT_DIR",
+        "MINICRIT_MODEL",
+        "MINICRIT_LR",
+        "MINICRIT_BATCH_SIZE",
+        "MINICRIT_DATA_FILE",
+        "MINICRIT_CACHE_DIR",
+        "MINICRIT_OUTPUT_DIR",
     ]
     original_env = {k: os.environ.pop(k, None) for k in env_vars_to_clear}
 

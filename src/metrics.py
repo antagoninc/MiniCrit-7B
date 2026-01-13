@@ -83,9 +83,7 @@ class PrometheusMetrics:
             self.state.request_latency_buckets[endpoint] = [
                 HistogramBucket(le=b) for b in self.DEFAULT_BUCKETS
             ]
-            self.state.request_latency_buckets[endpoint].append(
-                HistogramBucket(le=float("inf"))
-            )
+            self.state.request_latency_buckets[endpoint].append(HistogramBucket(le=float("inf")))
 
     def inc_requests(self, endpoint: str, status: str = "success") -> None:
         """Increment request counter.

@@ -49,6 +49,7 @@ from enum import Enum
 
 class Severity(str, Enum):
     """Critique severity levels."""
+
     PASS = "pass"
     LOW = "low"
     MEDIUM = "medium"
@@ -59,6 +60,7 @@ class Severity(str, Enum):
 @dataclass
 class CritiqueResult:
     """Result of MiniCrit validation."""
+
     valid: bool
     severity: str
     critique: str
@@ -66,7 +68,7 @@ class CritiqueResult:
     flags: List[str]
     domain: str
     latency_ms: float
-    
+
     def __repr__(self):
         status = "✓ VALID" if self.valid else f"✗ {self.severity.upper()}"
         return f"CritiqueResult({status}, flags={self.flags})"
@@ -75,31 +77,37 @@ class CritiqueResult:
 class MiniCrit:
     """
     MiniCrit adversarial AI validator.
-    
+
     Args:
         model: HuggingFace model ID or local path
             - "wmaousley/MiniCrit-7B" (default, best quality)
             - "wmaousley/MiniCrit-1.5B" (faster, smaller)
         device: Device to run on ("auto", "cuda", "mps", "cpu")
-        
+
     Example:
         >>> critic = MiniCrit()
         >>> result = critic.validate("Buy AAPL, 95% confident")
         >>> if not result.valid:
         ...     print(f"Warning: {result.critique}")
     """
-    
+
     DOMAINS = [
-        "trading", "finance", "defense", "cybersecurity", 
-        "medical", "risk_assessment", "planning", "general"
+        "trading",
+        "finance",
+        "defense",
+        "cybersecurity",
+        "medical",
+        "risk_assessment",
+        "planning",
+        "general",
     ]
-    
+
     # Default models
     DEFAULT_7B_ADAPTER = "wmaousley/MiniCrit-7B"
     DEFAULT_7B_BASE = "Qwen/Qwen2-7B-Instruct"
     DEFAULT_1_5B_ADAPTER = "wmaousley/MiniCrit-1.5B"
     DEFAULT_1_5B_BASE = "Qwen/Qwen2-0.5B-Instruct"
-    
+
     def __init__(
         self,
         model: str = "7b",
@@ -110,7 +118,7 @@ class MiniCrit:
         self.device = device
         self._model = None
         self._tokenizer = None
-        
+
         # Select model
         if model == "7b" or model == self.DEFAULT_7B_ADAPTER:
             self.adapter_id = self.DEFAULT_7B_ADAPTER
@@ -121,17 +129,17 @@ class MiniCrit:
         else:
             # Custom model path
             self.adapter_id = model
-            self.base_model_id = None  # Must be set manually
-        
+            self.base_model_id = None  # type: ignore[assignment]  # Must be set manually
+
         if load_on_init:
             self._load_model()
-    
+
     def _load_model(self):
         """Load model and tokenizer."""
         import torch
         from transformers import AutoTokenizer, AutoModelForCausalLM
         from peft import PeftModel
-        
+
         # Determine device
         if self.device == "auto":
             if torch.cuda.is_available():
@@ -142,15 +150,12 @@ class MiniCrit:
                 device = "cpu"
         else:
             device = self.device
-        
+
         # Load tokenizer
-        self._tokenizer = AutoTokenizer.from_pretrained(
-            self.base_model_id, 
-            trust_remote_code=True
-        )
+        self._tokenizer = AutoTokenizer.from_pretrained(self.base_model_id, trust_remote_code=True)
         if self._tokenizer.pad_token is None:
             self._tokenizer.pad_token = self._tokenizer.eos_token
-        
+
         # Load base model
         dtype = torch.float16 if device == "mps" else torch.bfloat16
         base_model = AutoModelForCausalLM.from_pretrained(
@@ -159,13 +164,13 @@ class MiniCrit:
             trust_remote_code=True,
         )
         base_model = base_model.to(device)
-        
+
         # Apply LoRA adapter
         self._model = PeftModel.from_pretrained(base_model, self.adapter_id)
         self._model.eval()
-        
+
         self._device = device
-    
+
     def validate(
         self,
         rationale: str,
@@ -174,62 +179,58 @@ class MiniCrit:
     ) -> CritiqueResult:
         """
         Validate AI reasoning.
-        
+
         Args:
             rationale: The reasoning to validate
             domain: Domain context (trading, defense, etc.)
             context: Additional context (optional)
-            
+
         Returns:
             CritiqueResult with valid, severity, critique, flags
         """
         import torch
         import time
-        
+
         if self._model is None:
             self._load_model()
-        
+
         start_time = time.time()
-        
+
         # Format prompt
         prompt_parts = [f"### Domain: {domain}\n"]
         if context:
             prompt_parts.append(f"### Context:\n{context}\n")
         prompt_parts.append(f"### Rationale:\n{rationale}\n\n### Critique:\n")
         prompt = "".join(prompt_parts)
-        
+
         # Tokenize
-        inputs = self._tokenizer(
-            prompt, 
-            return_tensors="pt", 
-            truncation=True, 
-            max_length=512
+        inputs = self._tokenizer(  # type: ignore[misc]
+            prompt, return_tensors="pt", truncation=True, max_length=512
         )
-        inputs = {k: v.to(self._model.device) for k, v in inputs.items()}
-        
+        inputs = {k: v.to(self._model.device) for k, v in inputs.items()}  # type: ignore[union-attr,attr-defined]
+
         # Generate
         with torch.no_grad():
-            outputs = self._model.generate(
+            outputs = self._model.generate(  # type: ignore[union-attr,attr-defined]
                 **inputs,
                 max_new_tokens=256,
                 do_sample=True,
                 temperature=0.7,
                 top_p=0.9,
-                pad_token_id=self._tokenizer.pad_token_id,
-                eos_token_id=self._tokenizer.eos_token_id,
+                pad_token_id=self._tokenizer.pad_token_id,  # type: ignore[union-attr,attr-defined]
+                eos_token_id=self._tokenizer.eos_token_id,  # type: ignore[union-attr,attr-defined]
             )
-        
+
         # Decode
-        generated = self._tokenizer.decode(
-            outputs[0][inputs["input_ids"].shape[1]:],
-            skip_special_tokens=True
+        generated = self._tokenizer.decode(  # type: ignore[union-attr,attr-defined]
+            outputs[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
         ).strip()
-        
+
         # Parse result
         flags = []
         severity = Severity.PASS
         critique_lower = generated.lower()
-        
+
         # Detect severity
         if any(w in critique_lower for w in ["critical", "severe", "dangerous"]):
             severity = Severity.CRITICAL
@@ -239,7 +240,7 @@ class MiniCrit:
             severity = Severity.MEDIUM
         elif any(w in critique_lower for w in ["minor", "slight"]):
             severity = Severity.LOW
-        
+
         # Detect flags
         if any(w in critique_lower for w in ["overconfident", "overconfidence"]):
             flags.append("overconfidence")
@@ -251,11 +252,11 @@ class MiniCrit:
             flags.append("insufficient_evidence")
         if any(w in critique_lower for w in ["risk", "danger", "threat"]):
             flags.append("unaddressed_risk")
-        
+
         valid = severity in [Severity.PASS, Severity.LOW]
         confidence = 0.85 if len(generated) >= 20 else 0.5
         latency_ms = (time.time() - start_time) * 1000
-        
+
         return CritiqueResult(
             valid=valid,
             severity=severity.value,
@@ -265,7 +266,7 @@ class MiniCrit:
             domain=domain,
             latency_ms=round(latency_ms, 2),
         )
-    
+
     def batch_validate(
         self,
         rationales: List[str],
@@ -283,10 +284,10 @@ def validate(
 ) -> CritiqueResult:
     """
     Quick validation without instantiating MiniCrit.
-    
-    Note: Creates new model instance each call. 
+
+    Note: Creates new model instance each call.
     For multiple calls, use MiniCrit() class instead.
-    
+
     Example:
         >>> from minicrit import validate
         >>> result = validate("Stock will rise because it rose yesterday")
@@ -297,7 +298,7 @@ def validate(
 
 __all__ = [
     "MiniCrit",
-    "CritiqueResult", 
+    "CritiqueResult",
     "Severity",
     "validate",
     "__version__",

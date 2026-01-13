@@ -166,9 +166,7 @@ async def call_tool(name: str, arguments: dict):
     elif name == "batch_validate":
         return await _handle_batch_validate(arguments)
 
-    return CallToolResult(
-        content=[TextContent(type="text", text=f"Unknown tool: {name}")]
-    )
+    return CallToolResult(content=[TextContent(type="text", text=f"Unknown tool: {name}")])
 
 
 async def _handle_validate_reasoning(arguments: dict) -> CallToolResult:
@@ -179,10 +177,12 @@ async def _handle_validate_reasoning(arguments: dict) -> CallToolResult:
 
     if not rationale:
         return CallToolResult(
-            content=[TextContent(
-                type="text",
-                text=json.dumps({"error": "rationale is required", "code": "INVALID_INPUT"})
-            )]
+            content=[
+                TextContent(
+                    type="text",
+                    text=json.dumps({"error": "rationale is required", "code": "INVALID_INPUT"}),
+                )
+            ]
         )
 
     if domain not in DOMAINS:
@@ -201,46 +201,52 @@ async def _handle_validate_reasoning(arguments: dict) -> CallToolResult:
     except InvalidInputError as e:
         logger.warning(f"Invalid input: {e}")
         return CallToolResult(
-            content=[TextContent(
-                type="text",
-                text=json.dumps({"error": str(e), "code": "INVALID_INPUT"})
-            )]
+            content=[
+                TextContent(
+                    type="text", text=json.dumps({"error": str(e), "code": "INVALID_INPUT"})
+                )
+            ]
         )
 
     except ModelLoadError as e:
         logger.error(f"Model load error: {e}")
         return CallToolResult(
-            content=[TextContent(
-                type="text",
-                text=json.dumps({"error": f"Model failed to load: {e}", "code": "MODEL_LOAD_ERROR"})
-            )]
+            content=[
+                TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {"error": f"Model failed to load: {e}", "code": "MODEL_LOAD_ERROR"}
+                    ),
+                )
+            ]
         )
 
     except InferenceTimeoutError as e:
         logger.error(f"Inference timeout: {e}")
         return CallToolResult(
-            content=[TextContent(
-                type="text",
-                text=json.dumps({"error": str(e), "code": "TIMEOUT"})
-            )]
+            content=[
+                TextContent(type="text", text=json.dumps({"error": str(e), "code": "TIMEOUT"}))
+            ]
         )
 
     except InferenceError as e:
         logger.error(f"Inference error: {e}")
         return CallToolResult(
-            content=[TextContent(
-                type="text",
-                text=json.dumps({"error": str(e), "code": "INFERENCE_ERROR"})
-            )]
+            content=[
+                TextContent(
+                    type="text", text=json.dumps({"error": str(e), "code": "INFERENCE_ERROR"})
+                )
+            ]
         )
 
     except MemoryError as e:
         logger.error(f"Memory error: {e}")
         return CallToolResult(
-            content=[TextContent(
-                type="text",
-                text=json.dumps({"error": "Out of memory", "code": "OOM_ERROR"})
-            )]
+            content=[
+                TextContent(
+                    type="text", text=json.dumps({"error": "Out of memory", "code": "OOM_ERROR"})
+                )
+            ]
         )
 
 
@@ -257,9 +263,7 @@ async def _handle_get_model_info() -> CallToolResult:
         "cage_code": "17E75",
         "version": "1.2.0",
     }
-    return CallToolResult(
-        content=[TextContent(type="text", text=json.dumps(info, indent=2))]
-    )
+    return CallToolResult(content=[TextContent(type="text", text=json.dumps(info, indent=2))])
 
 
 async def _handle_batch_validate(arguments: dict) -> CallToolResult:
@@ -268,18 +272,24 @@ async def _handle_batch_validate(arguments: dict) -> CallToolResult:
 
     if not items:
         return CallToolResult(
-            content=[TextContent(
-                type="text",
-                text=json.dumps({"error": "items array is required", "code": "INVALID_INPUT"})
-            )]
+            content=[
+                TextContent(
+                    type="text",
+                    text=json.dumps({"error": "items array is required", "code": "INVALID_INPUT"}),
+                )
+            ]
         )
 
     if len(items) > 100:
         return CallToolResult(
-            content=[TextContent(
-                type="text",
-                text=json.dumps({"error": "Maximum 100 items allowed", "code": "INVALID_INPUT"})
-            )]
+            content=[
+                TextContent(
+                    type="text",
+                    text=json.dumps(
+                        {"error": "Maximum 100 items allowed", "code": "INVALID_INPUT"}
+                    ),
+                )
+            ]
         )
 
     results = []
@@ -294,36 +304,44 @@ async def _handle_batch_validate(arguments: dict) -> CallToolResult:
                 domain=domain,
                 request_id=item_id,
             )
-            results.append({
-                "id": item_id,
-                **result.to_dict(),
-            })
+            results.append(
+                {
+                    "id": item_id,
+                    **result.to_dict(),
+                }
+            )
 
         except (InvalidInputError, ModelLoadError, InferenceTimeoutError, InferenceError) as e:
-            results.append({
-                "id": item_id,
-                "error": str(e),
-                "code": type(e).__name__.upper(),
-            })
+            results.append(
+                {
+                    "id": item_id,
+                    "error": str(e),
+                    "code": type(e).__name__.upper(),
+                }
+            )
 
         except MemoryError:
-            results.append({
-                "id": item_id,
-                "error": "Out of memory",
-                "code": "OOM_ERROR",
-            })
+            results.append(
+                {
+                    "id": item_id,
+                    "error": "Out of memory",
+                    "code": "OOM_ERROR",
+                }
+            )
 
     return CallToolResult(
-        content=[TextContent(
-            type="text",
-            text=json.dumps({"results": results, "count": len(results)}, indent=2)
-        )]
+        content=[
+            TextContent(
+                type="text", text=json.dumps({"results": results, "count": len(results)}, indent=2)
+            )
+        ]
     )
 
 
 # ================================================================
 # Main
 # ================================================================
+
 
 async def main():
     """Main entry point."""

@@ -111,7 +111,7 @@ class HealthChecker:
 
     def __init__(self):
         """Initialize health checker."""
-        self._start_time = time.time()
+        self._start_time: float = time.time()
         self._startup_complete = False
         self._liveness_checks: list[tuple[str, Callable[[], CheckResult]]] = []
         self._readiness_checks: list[tuple[str, Callable[[], CheckResult]]] = []
@@ -229,11 +229,7 @@ class HealthChecker:
 
     def check_all(self) -> HealthResponse:
         """Run all health checks."""
-        all_checks = (
-            self._liveness_checks
-            + self._readiness_checks
-            + self._startup_checks
-        )
+        all_checks = self._liveness_checks + self._readiness_checks + self._startup_checks
         # Deduplicate by name
         seen = set()
         unique_checks = []
@@ -402,7 +398,9 @@ def create_health_router():
         """
         checker = get_health_checker()
         response = checker.check_readiness()
-        status_code = 200 if response.status in (HealthStatus.HEALTHY, HealthStatus.DEGRADED) else 503
+        status_code = (
+            200 if response.status in (HealthStatus.HEALTHY, HealthStatus.DEGRADED) else 503
+        )
         return JSONResponse(content=response.to_dict(), status_code=status_code)
 
     @router.get("/health/startup")

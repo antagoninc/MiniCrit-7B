@@ -17,7 +17,7 @@ Generate high-quality hard training examples using Claude Sonnet.
 
 Focus areas:
 1. sophisticated_valid - Complex correct reasoning (prevents false positives)
-2. subtle_flaw - Almost-correct with hidden issues  
+2. subtle_flaw - Almost-correct with hidden issues
 3. confident_wrong - Overconfidence detection
 
 Usage:
@@ -53,11 +53,11 @@ MODEL = "claude-sonnet-4-20250514"
 
 # Focus on highest-value example types
 EXAMPLE_TYPES = {
-    "sophisticated_valid": 0.35,    # 35% - prevents false positives
-    "subtle_flaw": 0.30,            # 30% - catches hard errors
-    "confident_wrong": 0.15,        # 15% - overconfidence detection
-    "mixed_signals": 0.10,          # 10% - nuanced critique
-    "missing_context": 0.10,        # 10% - context awareness
+    "sophisticated_valid": 0.35,  # 35% - prevents false positives
+    "subtle_flaw": 0.30,  # 30% - catches hard errors
+    "confident_wrong": 0.15,  # 15% - overconfidence detection
+    "mixed_signals": 0.10,  # 10% - nuanced critique
+    "missing_context": 0.10,  # 10% - context awareness
 }
 
 DOMAINS = {
@@ -65,7 +65,7 @@ DOMAINS = {
         "context": "quantitative trading, algorithmic strategies, risk management",
         "scenarios": [
             "momentum strategy evaluation",
-            "risk-adjusted return analysis", 
+            "risk-adjusted return analysis",
             "position sizing decision",
             "market regime assessment",
             "drawdown risk evaluation",
@@ -154,7 +154,6 @@ Make it realistic - the kind of reasoning a competent professional would produce
 The critique should say something like "This reasoning is sound because..." and explain why.
 
 Output JSON only.""",
-
     "subtle_flaw": """Create a SUBTLE FLAW reasoning example.
 
 Domain: {domain}
@@ -177,7 +176,6 @@ Good subtle flaws:
 - Overfitting to historical data
 
 Output JSON only.""",
-
     "confident_wrong": """Create a CONFIDENT BUT WRONG reasoning example.
 
 Domain: {domain}
@@ -198,7 +196,6 @@ The flaw can be:
 - Hasty generalization
 
 Output JSON only.""",
-
     "mixed_signals": """Create a MIXED SIGNALS reasoning example.
 
 Domain: {domain}
@@ -213,7 +210,6 @@ Requirements:
 - This teaches nuanced evaluation
 
 Output JSON only.""",
-
     "missing_context": """Create a MISSING CONTEXT reasoning example.
 
 Domain: {domain}
@@ -239,43 +235,44 @@ Output JSON only.""",
 # Generation
 # ================================================================
 
+
 def generate_example(client: anthropic.Anthropic, example_type: str, domain: str) -> Optional[dict]:
     """Generate a single example using Claude Sonnet."""
-    
+
     domain_info = DOMAINS[domain]
     scenario = random.choice(domain_info["scenarios"])
-    
+
     prompt = EXAMPLE_PROMPTS[example_type].format(
         domain=domain,
         context=domain_info["context"],
         scenario=scenario,
     )
-    
+
     try:
         response = client.messages.create(
             model=MODEL,
             max_tokens=1000,
             system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
         )
-        
+
         text = response.content[0].text.strip()
-        
+
         # Clean up markdown if present
         if text.startswith("```"):
             lines = text.split("\n")
             text = "\n".join(lines[1:-1])
-        
+
         # Parse JSON
         result = json.loads(text)
-        
+
         # Add metadata
         result["timestamp"] = datetime.utcnow().isoformat()
         result["generator"] = "claude-sonnet"
         result["scenario"] = scenario
-        
-        return result
-        
+
+        return dict(result)
+
     except json.JSONDecodeError as e:
         print(f"JSON parse error: {e}", file=sys.stderr)
         return None
@@ -287,7 +284,7 @@ def generate_example(client: anthropic.Anthropic, example_type: str, domain: str
 def select_example_type() -> str:
     """Weighted random selection of example type."""
     r = random.random()
-    cumulative = 0
+    cumulative: float = 0.0
     for example_type, weight in EXAMPLE_TYPES.items():
         cumulative += weight
         if r <= cumulative:
@@ -298,38 +295,40 @@ def select_example_type() -> str:
 def validate_example(example: dict) -> bool:
     """Validate generated example quality."""
     required = ["rationale", "critique", "domain", "data_type", "is_valid"]
-    
+
     for field in required:
         if field not in example:
             return False
-    
+
     # Check minimum lengths
     if len(example.get("rationale", "")) < 80:
         return False
     if len(example.get("critique", "")) < 50:
         return False
-    
+
     return True
+
 
 # ================================================================
 # Main
 # ================================================================
+
 
 def main():
     parser = argparse.ArgumentParser(description="Generate hard examples with Claude Sonnet")
     parser.add_argument("--output", default="hard_examples_sonnet.jsonl", help="Output file")
     parser.add_argument("--count", type=int, default=5000, help="Number of examples")
     parser.add_argument("--resume", action="store_true", help="Resume from existing file")
-    
+
     args = parser.parse_args()
-    
+
     # Check API key
     if not os.environ.get("ANTHROPIC_API_KEY"):
         print("Error: Set ANTHROPIC_API_KEY environment variable")
         sys.exit(1)
-    
+
     client = anthropic.Anthropic()
-    
+
     print("=" * 60)
     print("🎯 MiniCrit Hard Example Generator (Claude Sonnet)")
     print("   Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3")
@@ -340,42 +339,48 @@ def main():
     print(f"\nExample type distribution:")
     for t, w in EXAMPLE_TYPES.items():
         print(f"  {t}: {w*100:.0f}%")
-    
+
     # Resume support
     generated = 0
     if args.resume and os.path.exists(args.output):
-        with open(args.output, 'r') as f:
+        with open(args.output, "r") as f:
             generated = sum(1 for _ in f)
         print(f"\nResuming from {generated} existing examples")
-    
+
     failed = 0
     domains = list(DOMAINS.keys())
-    
-    mode = 'a' if args.resume else 'w'
+
+    mode = "a" if args.resume else "w"
     with open(args.output, mode) as f:
         while generated < args.count:
             # Select type and domain
             example_type = select_example_type()
             domain = random.choice(domains)
-            
-            print(f"\r[{generated}/{args.count}] Generating {example_type} ({domain})... ", end="", flush=True)
-            
+
+            print(
+                f"\r[{generated}/{args.count}] Generating {example_type} ({domain})... ",
+                end="",
+                flush=True,
+            )
+
             example = generate_example(client, example_type, domain)
-            
+
             if example and validate_example(example):
                 f.write(json.dumps(example) + "\n")
                 generated += 1
-                
+
                 # Checkpoint
                 if generated % 100 == 0:
                     f.flush()
-                    print(f"\n✅ Checkpoint: {generated} generated, {failed} failed, ~${generated * 0.006:.2f} spent")
+                    print(
+                        f"\n✅ Checkpoint: {generated} generated, {failed} failed, ~${generated * 0.006:.2f} spent"
+                    )
             else:
                 failed += 1
-            
+
             # Rate limiting (Sonnet allows ~50 req/min on standard tier)
             time.sleep(1.2)
-    
+
     print(f"\n\n{'=' * 60}")
     print(f"✅ Complete!")
     print(f"   Generated: {generated}")
@@ -383,13 +388,13 @@ def main():
     print(f"   Estimated cost: ~${generated * 0.006:.2f}")
     print(f"   Output: {args.output}")
     print("=" * 60)
-    
+
     # Summary stats
     type_counts = {}
     domain_counts = {}
     valid_counts = {"true": 0, "false": 0}
-    
-    with open(args.output, 'r') as f:
+
+    with open(args.output, "r") as f:
         for line in f:
             ex = json.loads(line)
             t = ex.get("data_type", "unknown")
@@ -399,7 +404,7 @@ def main():
             domain_counts[d] = domain_counts.get(d, 0) + 1
             if v in valid_counts:
                 valid_counts[v] += 1
-    
+
     print(f"\n📊 Distribution:")
     print(f"   By type: {type_counts}")
     print(f"   By domain: {domain_counts}")

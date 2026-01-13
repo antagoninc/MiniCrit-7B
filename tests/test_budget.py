@@ -233,10 +233,9 @@ class TestCostCalculator:
             output_tokens=500_000,
             local=False,
         )
-        expected = (
-            (1_000_000 / 1_000_000) * DEFAULT_RATES["input_tokens"] +
-            (500_000 / 1_000_000) * DEFAULT_RATES["output_tokens"]
-        )
+        expected = (1_000_000 / 1_000_000) * DEFAULT_RATES["input_tokens"] + (
+            500_000 / 1_000_000
+        ) * DEFAULT_RATES["output_tokens"]
         assert cost == expected
 
     def test_api_cost(self) -> None:
@@ -248,10 +247,9 @@ class TestCostCalculator:
             provider="openai",
             model="gpt4",
         )
-        expected = (
-            (1_000_000 / 1_000_000) * DEFAULT_RATES["openai_gpt4_input"] +
-            (500_000 / 1_000_000) * DEFAULT_RATES["openai_gpt4_output"]
-        )
+        expected = (1_000_000 / 1_000_000) * DEFAULT_RATES["openai_gpt4_input"] + (
+            500_000 / 1_000_000
+        ) * DEFAULT_RATES["openai_gpt4_output"]
         assert cost == expected
 
     def test_storage_cost(self) -> None:
@@ -432,6 +430,7 @@ class TestGlobalTracker:
     def test_get_tracker(self) -> None:
         """Test getting global tracker."""
         import src.budget
+
         src.budget._global_tracker = None
 
         tracker = get_tracker()
@@ -448,6 +447,7 @@ class TestGlobalTracker:
     def test_get_tracker_from_env(self) -> None:
         """Test getting tracker with env var."""
         import src.budget
+
         src.budget._global_tracker = None
 
         with patch.dict("os.environ", {"MINICRIT_BUDGET_LIMIT": "200.0"}):

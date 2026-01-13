@@ -151,11 +151,13 @@ class BudgetSummary:
         ]
 
         if self.budget_limit:
-            lines.extend([
-                f"Budget Limit: ${self.budget_limit:.2f}",
-                f"Remaining: ${self.budget_remaining:.2f}",
-                f"Used: {self.budget_used_pct:.1f}%",
-            ])
+            lines.extend(
+                [
+                    f"Budget Limit: ${self.budget_limit:.2f}",
+                    f"Remaining: ${self.budget_remaining:.2f}",
+                    f"Used: {self.budget_used_pct:.1f}%",
+                ]
+            )
 
         lines.append("")
         lines.append("Cost by Category:")
@@ -277,7 +279,7 @@ class CostCalculator:
         batch_size: int,
         samples_per_second: float = 10.0,
         gpu_type: str = "gpu_a100_80gb",
-    ) -> dict[str, float]:
+    ) -> dict[str, Any]:
         """Estimate cost for a training run.
 
         Args:
@@ -441,7 +443,7 @@ class BudgetTracker:
         """
         cost = self.calculator.training_cost(gpu_hours, gpu_type)
 
-        metadata = {"gpu_type": gpu_type}
+        metadata: dict[str, Any] = {"gpu_type": gpu_type}
         if batch_size is not None:
             metadata["batch_size"] = batch_size
         if step is not None:
@@ -477,7 +479,7 @@ class BudgetTracker:
         cost = self.calculator.inference_cost(input_tokens, output_tokens, local)
         total_tokens = input_tokens + output_tokens
 
-        metadata = {
+        metadata: dict[str, Any] = {
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
             "local": local,
@@ -642,9 +644,7 @@ def get_tracker() -> BudgetTracker:
 
     if _global_tracker is None:
         budget_limit = os.environ.get("MINICRIT_BUDGET_LIMIT")
-        _global_tracker = BudgetTracker(
-            budget_limit=float(budget_limit) if budget_limit else None
-        )
+        _global_tracker = BudgetTracker(budget_limit=float(budget_limit) if budget_limit else None)
 
     return _global_tracker
 

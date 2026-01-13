@@ -185,6 +185,7 @@ class TestTraceFunction:
 
     def test_decorated_function_works(self):
         """Test decorated function executes normally."""
+
         @trace_function()
         def my_func(x: int) -> int:
             return x * 2
@@ -194,6 +195,7 @@ class TestTraceFunction:
 
     def test_custom_name(self):
         """Test decorator with custom span name."""
+
         @trace_function(name="custom_operation")
         def my_func() -> str:
             return "result"
@@ -203,6 +205,7 @@ class TestTraceFunction:
 
     def test_with_attributes(self):
         """Test decorator with attributes."""
+
         @trace_function(attributes={"component": "test"})
         def my_func() -> None:
             pass
@@ -211,6 +214,7 @@ class TestTraceFunction:
 
     def test_preserves_function_metadata(self):
         """Test decorator preserves function name and docstring."""
+
         @trace_function()
         def documented_func() -> None:
             """This is my docstring."""
@@ -221,6 +225,7 @@ class TestTraceFunction:
 
     def test_handles_exception(self):
         """Test decorator handles exceptions properly."""
+
         @trace_function()
         def failing_func() -> None:
             raise ValueError("test error")
@@ -239,6 +244,7 @@ class TestTraceAsyncFunction:
     @pytest.mark.asyncio
     async def test_decorated_async_function_works(self):
         """Test decorated async function executes normally."""
+
         @trace_async_function()
         async def my_async_func(x: int) -> int:
             return x * 2
@@ -249,6 +255,7 @@ class TestTraceAsyncFunction:
     @pytest.mark.asyncio
     async def test_handles_async_exception(self):
         """Test decorator handles async exceptions properly."""
+
         @trace_async_function()
         async def failing_async_func() -> None:
             raise ValueError("async error")

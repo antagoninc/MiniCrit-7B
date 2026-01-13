@@ -41,18 +41,25 @@ VALID_QUANTIZATION_OPTIONS = ["none", "8bit", "4bit"]
 
 # CORS configuration
 CORS_ORIGINS = os.environ.get(
-    "MINICRIT_CORS_ORIGINS",
-    "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000"
+    "MINICRIT_CORS_ORIGINS", "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000"
 ).split(",")
 
 DOMAINS = [
-    "trading", "finance", "risk_assessment", "resource_allocation",
-    "planning_scheduling", "cybersecurity", "defense", "medical", "general",
+    "trading",
+    "finance",
+    "risk_assessment",
+    "resource_allocation",
+    "planning_scheduling",
+    "cybersecurity",
+    "defense",
+    "medical",
+    "general",
 ]
 
 
 class Severity(str, Enum):
     """Critique severity levels."""
+
     PASS = "pass"
     LOW = "low"
     MEDIUM = "medium"
@@ -63,6 +70,7 @@ class Severity(str, Enum):
 @dataclass
 class CritiqueResult:
     """Result of critique generation."""
+
     valid: bool
     severity: str
     critique: str
@@ -81,39 +89,47 @@ class CritiqueResult:
 # Custom Exceptions
 # ================================================================
 
+
 class ModelNotLoadedError(Exception):
     """Raised when model is not loaded."""
+
     pass
 
 
 class ModelLoadError(Exception):
     """Raised when model fails to load."""
+
     pass
 
 
 class InferenceTimeoutError(Exception):
     """Raised when inference times out."""
+
     pass
 
 
 class InferenceError(Exception):
     """Raised when inference fails."""
+
     pass
 
 
 class InvalidInputError(ValueError):
     """Raised when input validation fails."""
+
     pass
 
 
 class InputSanitizationError(InvalidInputError):
     """Raised when input contains potentially malicious content."""
+
     pass
 
 
 # ================================================================
 # Input Sanitizer (Security Hardening)
 # ================================================================
+
 
 class InputSanitizer:
     """Input sanitizer for security hardening.
@@ -155,15 +171,12 @@ class InputSanitizer:
     ]
 
     # Control characters to strip (keep basic whitespace)
-    CONTROL_CHAR_PATTERN = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]')
+    CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 
     def __init__(self):
         """Initialize the sanitizer with compiled patterns."""
         self._logger = logging.getLogger("minicrit.input_sanitizer")
-        self._injection_regex = re.compile(
-            '|'.join(self.INJECTION_PATTERNS),
-            re.IGNORECASE
-        )
+        self._injection_regex = re.compile("|".join(self.INJECTION_PATTERNS), re.IGNORECASE)
 
     def validate_rationale(self, rationale: str) -> str:
         """Validate and sanitize rationale input.
@@ -259,8 +272,7 @@ class InputSanitizer:
 
         if len(clean) > self.MAX_CONTEXT_LENGTH:
             raise InvalidInputError(
-                f"Context cannot exceed {self.MAX_CONTEXT_LENGTH} characters "
-                f"(got {len(clean)})"
+                f"Context cannot exceed {self.MAX_CONTEXT_LENGTH} characters " f"(got {len(clean)})"
             )
 
         # Check for injection patterns
@@ -279,7 +291,7 @@ class InputSanitizer:
         Returns:
             Text with control characters removed.
         """
-        return self.CONTROL_CHAR_PATTERN.sub('', text)
+        return self.CONTROL_CHAR_PATTERN.sub("", text)
 
     def _check_injection(self, text: str, field_name: str) -> None:
         """Check text for injection patterns.
@@ -342,6 +354,7 @@ def get_input_sanitizer() -> InputSanitizer:
 # ================================================================
 # Thread-Safe Model Manager
 # ================================================================
+
 
 class ModelManager:
     """Thread-safe singleton model manager.
@@ -412,11 +425,11 @@ class ModelManager:
         return self._quantization_mode
 
     @property
-    def stats(self) -> dict:
+    def stats(self) -> dict[str, Any]:
         """Get usage statistics."""
         stats = self._stats.copy()
         stats["quantization"] = self._quantization_mode
-        return stats
+        return stats  # type: ignore[no-any-return]
 
     def get_model(self, timeout: Optional[float] = None) -> tuple[Any, Any]:
         """Get model and tokenizer, loading if necessary.
@@ -463,10 +476,7 @@ class ModelManager:
 
             # Run synchronous loading in thread pool
             loop = asyncio.get_event_loop()
-            await loop.run_in_executor(
-                self._executor,
-                lambda: self._load_model_sync(timeout)
-            )
+            await loop.run_in_executor(self._executor, lambda: self._load_model_sync(timeout))
 
             return self._model, self._tokenizer
 
@@ -503,6 +513,7 @@ class ModelManager:
             if quantize in ["8bit", "4bit"]:
                 try:
                     import bitsandbytes
+
                     bnb_available = True
                     self._logger.info(f"bitsandbytes available, using {quantize} quantization")
                 except ImportError:
@@ -537,10 +548,7 @@ class ModelManager:
             self._quantization_mode = quantize
 
             # Load tokenizer
-            self._tokenizer = AutoTokenizer.from_pretrained(
-                BASE_MODEL_ID,
-                trust_remote_code=True
-            )
+            self._tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_ID, trust_remote_code=True)
             if self._tokenizer.pad_token is None:
                 self._tokenizer.pad_token = self._tokenizer.eos_token
 
@@ -585,7 +593,7 @@ class ModelManager:
                     torch_dtype=dtype,
                     trust_remote_code=True,
                 )
-                base_model = base_model.to(device)
+                base_model = base_model.to(device)  # type: ignore[arg-type]
                 self._logger.info(f"Loaded model with {dtype}")
 
             # Apply LoRA adapter
@@ -661,6 +669,7 @@ class ModelManager:
 # ================================================================
 # Critique Generator
 # ================================================================
+
 
 class CritiqueGenerator:
     """Thread-safe critique generator.
@@ -747,8 +756,7 @@ class CritiqueGenerator:
 
         try:
             future = self._executor.submit(
-                self._generate_impl,
-                clean_rationale, clean_domain, clean_context, request_id
+                self._generate_impl, clean_rationale, clean_domain, clean_context, request_id
             )
             return future.result(timeout=timeout)
         except FuturesTimeoutError:
@@ -792,9 +800,11 @@ class CritiqueGenerator:
             result = await asyncio.wait_for(
                 loop.run_in_executor(
                     self._executor,
-                    lambda: self._generate_impl(clean_rationale, clean_domain, clean_context, request_id)
+                    lambda: self._generate_impl(
+                        clean_rationale, clean_domain, clean_context, request_id
+                    ),
                 ),
-                timeout=timeout
+                timeout=timeout,
             )
             return result
         except asyncio.TimeoutError:
@@ -823,12 +833,7 @@ class CritiqueGenerator:
             prompt = "".join(prompt_parts)
 
             # Tokenize
-            inputs = tokenizer(
-                prompt,
-                return_tensors="pt",
-                truncation=True,
-                max_length=MAX_LENGTH
-            )
+            inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=MAX_LENGTH)
             inputs = {k: v.to(model.device) for k, v in inputs.items()}
 
             # Generate
@@ -845,8 +850,7 @@ class CritiqueGenerator:
 
             # Decode
             generated = tokenizer.decode(
-                outputs[0][inputs["input_ids"].shape[1]:],
-                skip_special_tokens=True
+                outputs[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
             ).strip()
 
             # Parse severity and flags
@@ -937,6 +941,7 @@ class CritiqueGenerator:
 # Rate Limiter
 # ================================================================
 
+
 class RateLimiter:
     """Thread-safe sliding window rate limiter.
 
@@ -977,9 +982,7 @@ class RateLimiter:
                 self._requests[key] = []
 
             # Clean old requests
-            self._requests[key] = [
-                t for t in self._requests[key] if t > window_start
-            ]
+            self._requests[key] = [t for t in self._requests[key] if t > window_start]
 
             # Check limit
             if len(self._requests[key]) >= self.limit:
@@ -1018,6 +1021,7 @@ class RateLimiter:
 # ================================================================
 # Graceful Shutdown Handler
 # ================================================================
+
 
 class GracefulShutdown:
     """Handler for graceful shutdown with model cleanup.
@@ -1063,6 +1067,7 @@ class GracefulShutdown:
 # ================================================================
 # Convenience Functions
 # ================================================================
+
 
 def get_model_manager() -> ModelManager:
     """Get the singleton ModelManager instance."""

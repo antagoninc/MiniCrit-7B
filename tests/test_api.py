@@ -156,9 +156,7 @@ class TestBatchCritiqueRequest:
 
     def test_valid_batch_request(self) -> None:
         """Test valid batch request."""
-        req = BatchCritiqueRequest(
-            rationales=["Rationale 1", "Rationale 2", "Rationale 3"]
-        )
+        req = BatchCritiqueRequest(rationales=["Rationale 1", "Rationale 2", "Rationale 3"])
         assert len(req.rationales) == 3
         assert req.max_tokens == 256
 
@@ -293,8 +291,12 @@ class TestModelState:
     def test_state_keys(self) -> None:
         """Test model state has expected keys."""
         expected_keys = {
-            "model", "tokenizer", "loaded", "load_time",
-            "request_count", "total_tokens_generated"
+            "model",
+            "tokenizer",
+            "loaded",
+            "load_time",
+            "request_count",
+            "total_tokens_generated",
         }
         assert expected_keys.issubset(set(_model_state.keys()))
 
@@ -324,7 +326,7 @@ class TestAPIHelpers:
         if "### Critique:" in full_output:
             critique = full_output.split("### Critique:")[-1].strip()
         else:
-            critique = full_output[len(prompt):].strip()
+            critique = full_output[len(prompt) :].strip()
 
         assert critique == "Generated critique text"
 
@@ -335,8 +337,10 @@ class TestRequestValidation:
     def test_rationale_not_empty(self) -> None:
         """Test that empty rationale is rejected by Pydantic validation."""
         import pytest
+
         try:
             from pydantic import ValidationError
+
             # With pydantic, empty string should raise validation error (min_length=10)
             with pytest.raises(ValidationError):
                 CritiqueRequest(rationale="")
@@ -368,8 +372,10 @@ class TestBatchValidation:
     def test_empty_batch(self) -> None:
         """Test empty batch is rejected by Pydantic validation."""
         import pytest
+
         try:
             from pydantic import ValidationError
+
             # With pydantic, empty list should raise validation error (min_length=1)
             with pytest.raises(ValidationError):
                 BatchCritiqueRequest(rationales=[])

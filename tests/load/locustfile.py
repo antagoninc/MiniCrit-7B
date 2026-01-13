@@ -41,10 +41,33 @@ DOMAINS = ["trading", "compliance", "medical", "general", "statistical"]
 def generate_random_rationale(min_len: int = 50, max_len: int = 200) -> str:
     """Generate a random rationale for testing."""
     words = [
-        "the", "stock", "will", "rise", "because", "market", "trends", "indicate",
-        "growth", "potential", "based", "on", "analysis", "data", "suggests",
-        "therefore", "conclude", "evidence", "shows", "reasoning", "logic",
-        "implies", "pattern", "historical", "performance", "metrics", "indicate",
+        "the",
+        "stock",
+        "will",
+        "rise",
+        "because",
+        "market",
+        "trends",
+        "indicate",
+        "growth",
+        "potential",
+        "based",
+        "on",
+        "analysis",
+        "data",
+        "suggests",
+        "therefore",
+        "conclude",
+        "evidence",
+        "shows",
+        "reasoning",
+        "logic",
+        "implies",
+        "pattern",
+        "historical",
+        "performance",
+        "metrics",
+        "indicate",
     ]
     length = random.randint(min_len, max_len)
     return " ".join(random.choices(words, k=length // 5))

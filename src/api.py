@@ -35,9 +35,9 @@ logger = get_logger(__name__)
 
 # CORS configuration - configurable via environment variable
 import os
+
 CORS_ORIGINS = os.environ.get(
-    "MINICRIT_CORS_ORIGINS",
-    "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000"
+    "MINICRIT_CORS_ORIGINS", "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000"
 ).split(",")
 
 # Global model state
@@ -199,8 +199,8 @@ def load_model(model_path: str | None = None) -> None:
         # Load LoRA adapter if available
         try:
             logger.info(f"Loading adapter from: {adapter_path}")
-            model = PeftModel.from_pretrained(model, adapter_path)
-            model = model.merge_and_unload()
+            model = PeftModel.from_pretrained(model, adapter_path)  # type: ignore[assignment]
+            model = model.merge_and_unload()  # type: ignore[operator]
             logger.info("LoRA adapter loaded and merged")
         except FileNotFoundError as e:
             logger.warning(f"Adapter not found: {e}. Using base model.")
@@ -290,7 +290,7 @@ def generate_critique(
     if "### Critique:" in full_output:
         critique = full_output.split("### Critique:")[-1].strip()
     else:
-        critique = full_output[len(prompt):].strip()
+        critique = full_output[len(prompt) :].strip()
 
     return critique, tokens_generated
 
@@ -418,44 +418,52 @@ async def create_batch_critiques(request: BatchCritiqueRequest) -> BatchCritique
 
             item_latency = (time.perf_counter() - item_start) * 1000
 
-            critiques.append(CritiqueResponse(
-                critique=critique,
-                rationale=rationale,
-                tokens_generated=tokens,
-                latency_ms=item_latency,
-                model_name=_model_state.get("model_name", "unknown"),
-            ))
+            critiques.append(
+                CritiqueResponse(
+                    critique=critique,
+                    rationale=rationale,
+                    tokens_generated=tokens,
+                    latency_ms=item_latency,
+                    model_name=_model_state.get("model_name", "unknown"),
+                )
+            )
 
             _model_state["request_count"] += 1
             _model_state["total_tokens_generated"] += tokens
 
         except ValueError as e:
             logger.warning(f"Batch item invalid input: {e}")
-            critiques.append(CritiqueResponse(
-                critique=f"Invalid input: {str(e)}",
-                rationale=rationale,
-                tokens_generated=0,
-                latency_ms=0,
-                model_name="error",
-            ))
+            critiques.append(
+                CritiqueResponse(
+                    critique=f"Invalid input: {str(e)}",
+                    rationale=rationale,
+                    tokens_generated=0,
+                    latency_ms=0,
+                    model_name="error",
+                )
+            )
         except RuntimeError as e:
             logger.error(f"Batch item runtime error: {e}")
-            critiques.append(CritiqueResponse(
-                critique=f"Error: {str(e)}",
-                rationale=rationale,
-                tokens_generated=0,
-                latency_ms=0,
-                model_name="error",
-            ))
+            critiques.append(
+                CritiqueResponse(
+                    critique=f"Error: {str(e)}",
+                    rationale=rationale,
+                    tokens_generated=0,
+                    latency_ms=0,
+                    model_name="error",
+                )
+            )
         except MemoryError as e:
             logger.error(f"Batch item memory error: {e}")
-            critiques.append(CritiqueResponse(
-                critique="Error: Out of memory",
-                rationale=rationale,
-                tokens_generated=0,
-                latency_ms=0,
-                model_name="error",
-            ))
+            critiques.append(
+                CritiqueResponse(
+                    critique="Error: Out of memory",
+                    rationale=rationale,
+                    tokens_generated=0,
+                    latency_ms=0,
+                    model_name="error",
+                )
+            )
 
     total_latency = (time.perf_counter() - start_time) * 1000
     avg_latency = total_latency / len(critiques) if critiques else 0

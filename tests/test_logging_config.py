@@ -82,6 +82,7 @@ class TestStructuredFormatter:
             raise ValueError("Test error")
         except ValueError:
             import sys
+
             exc_info = sys.exc_info()
 
         record = logging.LogRecord(
@@ -330,6 +331,7 @@ class TestSetupLogging:
         """Test default logging setup."""
         # Reset initialization flag for testing
         import src.logging_config
+
         src.logging_config._logging_initialized = False
 
         setup_logging()
@@ -340,6 +342,7 @@ class TestSetupLogging:
     def test_setup_with_level(self) -> None:
         """Test setup with custom level."""
         import src.logging_config
+
         src.logging_config._logging_initialized = False
 
         setup_logging(level="DEBUG")
@@ -350,21 +353,20 @@ class TestSetupLogging:
     def test_setup_json_format(self) -> None:
         """Test setup with JSON format."""
         import src.logging_config
+
         src.logging_config._logging_initialized = False
 
         setup_logging(json_format=True)
 
         # Check that handler has StructuredFormatter
         root = logging.getLogger()
-        has_structured = any(
-            isinstance(h.formatter, StructuredFormatter)
-            for h in root.handlers
-        )
+        has_structured = any(isinstance(h.formatter, StructuredFormatter) for h in root.handlers)
         assert has_structured
 
     def test_setup_with_file(self) -> None:
         """Test setup with file logging."""
         import src.logging_config
+
         src.logging_config._logging_initialized = False
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -380,6 +382,7 @@ class TestSetupLogging:
     def test_idempotent(self) -> None:
         """Test that setup is idempotent."""
         import src.logging_config
+
         src.logging_config._logging_initialized = False
 
         setup_logging()

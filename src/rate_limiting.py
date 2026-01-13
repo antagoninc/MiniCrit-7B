@@ -139,9 +139,7 @@ class InMemoryRateLimiter(BaseRateLimiter):
                 self._requests[key] = []
 
             # Clean old requests
-            self._requests[key] = [
-                t for t in self._requests[key] if t > window_start
-            ]
+            self._requests[key] = [t for t in self._requests[key] if t > window_start]
 
             # Check limit
             if len(self._requests[key]) >= self.limit:
@@ -206,6 +204,7 @@ class RedisRateLimiter(BaseRateLimiter):
         """Connect to Redis."""
         try:
             import redis
+
             self._redis = redis.from_url(
                 self._redis_url,
                 decode_responses=True,
@@ -317,7 +316,9 @@ class RedisRateLimiter(BaseRateLimiter):
             "connected": self.is_connected,
             "limit": self.limit,
             "window": self.window,
-            "redis_url": self._redis_url.split("@")[-1] if "@" in self._redis_url else self._redis_url,
+            "redis_url": (
+                self._redis_url.split("@")[-1] if "@" in self._redis_url else self._redis_url
+            ),
         }
 
         if self.is_connected:

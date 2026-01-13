@@ -101,11 +101,10 @@ def load_tokenizer(model_name: str) -> PreTrainedTokenizer:
 
     logger.info(f"Tokenizer loaded (vocab size: {tokenizer.vocab_size})")
     logger.info(
-        f"pad_token_id: {tokenizer.pad_token_id}, "
-        f"eos_token_id: {tokenizer.eos_token_id}"
+        f"pad_token_id: {tokenizer.pad_token_id}, " f"eos_token_id: {tokenizer.eos_token_id}"
     )
 
-    return tokenizer
+    return tokenizer  # type: ignore[return-value,no-any-return]
 
 
 def load_base_model(
@@ -208,15 +207,15 @@ def apply_lora(
         lora_alpha=lora_config.alpha,
         lora_dropout=lora_config.dropout,
         target_modules=lora_config.target_modules,
-        bias=lora_config.bias,
+        bias=lora_config.bias,  # type: ignore[arg-type]
     )
 
-    model = get_peft_model(model, peft_config)
+    peft_model = get_peft_model(model, peft_config)
 
     # Log trainable parameters
-    model.print_trainable_parameters()
+    peft_model.print_trainable_parameters()  # type: ignore[operator]
 
-    return model
+    return peft_model  # type: ignore[return-value]
 
 
 def save_model(

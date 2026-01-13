@@ -242,9 +242,7 @@ class TestLoadTestData:
             {"rationale": "Test 2", "critique": "Critique 2"},
         ]
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(data, f)
             path = f.name
 
@@ -259,10 +257,12 @@ class TestLoadTestData:
         """Test loading CSV test data."""
         import pandas as pd
 
-        df = pd.DataFrame({
-            "text": ["Text 1", "Text 2"],
-            "rebuttal": ["Rebuttal 1", "Rebuttal 2"],
-        })
+        df = pd.DataFrame(
+            {
+                "text": ["Text 1", "Text 2"],
+                "rebuttal": ["Rebuttal 1", "Rebuttal 2"],
+            }
+        )
 
         with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as f:
             path = f.name
@@ -279,10 +279,12 @@ class TestLoadTestData:
         """Test loading CSV with alternative column names."""
         import pandas as pd
 
-        df = pd.DataFrame({
-            "input": ["Input 1", "Input 2"],
-            "output": ["Output 1", "Output 2"],
-        })
+        df = pd.DataFrame(
+            {
+                "input": ["Input 1", "Input 2"],
+                "output": ["Output 1", "Output 2"],
+            }
+        )
 
         with tempfile.NamedTemporaryFile(suffix=".csv", delete=False) as f:
             path = f.name

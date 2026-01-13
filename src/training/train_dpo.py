@@ -36,6 +36,7 @@ import argparse
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import torch
 from datasets import Dataset
@@ -73,37 +74,40 @@ logger = logging.getLogger("dpo-train")
 # Data Loading
 # ================================================================
 
+
 def load_dpo_data(filepath: str) -> Dataset:
     """Load DPO preference pairs from JSONL."""
-    
-    data = {"prompt": [], "chosen": [], "rejected": []}
-    
-    with open(filepath, 'r') as f:
+
+    data: dict[str, list[str]] = {"prompt": [], "chosen": [], "rejected": []}
+
+    with open(filepath, "r") as f:
         for line in f:
             item = json.loads(line)
             data["prompt"].append(item["prompt"])
             data["chosen"].append(item["chosen"])
             data["rejected"].append(item["rejected"])
-    
+
     dataset = Dataset.from_dict(data)
     logger.info(f"Loaded {len(dataset)} DPO pairs from {filepath}")
-    
+
     return dataset
+
 
 # ================================================================
 # Model Setup
 # ================================================================
 
+
 def setup_model(model_path: str, device: str = "auto"):
     """Load model with LoRA for DPO training."""
-    
+
     logger.info(f"Loading model: {model_path}")
-    
+
     # Tokenizer
     tokenizer = AutoTokenizer.from_pretrained(model_path)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
-    
+
     # Model
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
@@ -111,7 +115,7 @@ def setup_model(model_path: str, device: str = "auto"):
         device_map=device,
         trust_remote_code=True,
     )
-    
+
     # LoRA config
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
@@ -119,22 +123,29 @@ def setup_model(model_path: str, device: str = "auto"):
         lora_alpha=DEFAULT_LORA_ALPHA,
         lora_dropout=DEFAULT_LORA_DROPOUT,
         target_modules=[
-            "q_proj", "k_proj", "v_proj", "o_proj",
-            "gate_proj", "up_proj", "down_proj",
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
         ],
     )
-    
+
     # Apply LoRA
-    model = get_peft_model(model, lora_config)
-    model.print_trainable_parameters()
-    
+    model = get_peft_model(model, lora_config)  # type: ignore[assignment]
+    model.print_trainable_parameters()  # type: ignore[operator]
+
     logger.info(f"Model loaded on {next(model.parameters()).device}")
-    
+
     return model, tokenizer
+
 
 # ================================================================
 # Training
 # ================================================================
+
 
 def train_dpo(
     model,
@@ -149,11 +160,11 @@ def train_dpo(
     wandb_project: str = "minicrit-dpo",
 ):
     """Run DPO training."""
-    
+
     # Initialize W&B
     run_name = f"dpo-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     wandb.init(project=wandb_project, name=run_name)
-    
+
     # DPO config
     dpo_config = DPOConfig(
         output_dir=output_dir,
@@ -172,7 +183,7 @@ def train_dpo(
         remove_unused_columns=False,
         gradient_checkpointing=True,
     )
-    
+
     # Trainer
     trainer = DPOTrainer(
         model=model,
@@ -180,35 +191,37 @@ def train_dpo(
         train_dataset=train_dataset,
         tokenizer=tokenizer,
     )
-    
+
     # Train
     logger.info("Starting DPO training...")
     trainer.train()
-    
+
     # Save
     logger.info(f"Saving model to {output_dir}")
     trainer.save_model(output_dir)
     tokenizer.save_pretrained(output_dir)
-    
+
     # Save LoRA weights separately
     lora_dir = os.path.join(output_dir, "lora")
     model.save_pretrained(lora_dir)
     logger.info(f"LoRA weights saved to {lora_dir}")
-    
+
     wandb.finish()
-    
+
     return trainer
+
 
 # ================================================================
 # Evaluation
 # ================================================================
 
-def quick_eval(model, tokenizer, test_cases: list) -> dict:
+
+def quick_eval(model, tokenizer, test_cases: list) -> list[dict[str, Any]]:
     """Quick evaluation on test cases."""
-    
+
     model.eval()
     results = []
-    
+
     for test in test_cases:
         inputs = tokenizer(
             test["prompt"],
@@ -216,7 +229,7 @@ def quick_eval(model, tokenizer, test_cases: list) -> dict:
             truncation=True,
             max_length=DEFAULT_MAX_LENGTH,
         ).to(model.device)
-        
+
         with torch.no_grad():
             outputs = model.generate(
                 **inputs,
@@ -224,23 +237,27 @@ def quick_eval(model, tokenizer, test_cases: list) -> dict:
                 do_sample=False,  # Greedy for eval
                 pad_token_id=tokenizer.pad_token_id,
             )
-        
+
         generated = tokenizer.decode(
-            outputs[0][inputs["input_ids"].shape[1]:],
+            outputs[0][inputs["input_ids"].shape[1] :],
             skip_special_tokens=True,
         )
-        
-        results.append({
-            "prompt": test["prompt"][:100] + "...",
-            "generated": generated[:200],
-            "expected_valid": test.get("expected_valid"),
-        })
-    
+
+        results.append(
+            {
+                "prompt": test["prompt"][:100] + "...",
+                "generated": generated[:200],
+                "expected_valid": test.get("expected_valid"),
+            }
+        )
+
     return results
+
 
 # ================================================================
 # Main
 # ================================================================
+
 
 def main():
     parser = argparse.ArgumentParser(description="DPO training for MiniCrit")
@@ -253,9 +270,9 @@ def main():
     parser.add_argument("--beta", type=float, default=DEFAULT_BETA, help="DPO beta")
     parser.add_argument("--device", default="auto", help="Device")
     parser.add_argument("--wandb-project", default="minicrit-dpo")
-    
+
     args = parser.parse_args()
-    
+
     print("=" * 60)
     print("🎯 MiniCrit DPO Training")
     print("   Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3")
@@ -265,13 +282,13 @@ def main():
     print(f"Output: {args.output}")
     print(f"Epochs: {args.epochs}")
     print(f"Beta: {args.beta}")
-    
+
     # Load data
     train_dataset = load_dpo_data(args.data)
-    
+
     # Setup model
     model, tokenizer = setup_model(args.model, args.device)
-    
+
     # Train
     trainer = train_dpo(
         model=model,
@@ -284,7 +301,7 @@ def main():
         beta=args.beta,
         wandb_project=args.wandb_project,
     )
-    
+
     # Quick eval
     test_cases = [
         {
@@ -296,13 +313,13 @@ def main():
             "expected_valid": True,
         },
     ]
-    
+
     print("\n📊 Quick Evaluation:")
     results = quick_eval(model, tokenizer, test_cases)
     for r in results:
         print(f"\nPrompt: {r['prompt']}")
         print(f"Generated: {r['generated']}")
-    
+
     print(f"\n{'=' * 60}")
     print(f"✅ DPO Training Complete!")
     print(f"   Model saved to: {args.output}")

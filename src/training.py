@@ -186,8 +186,7 @@ def find_latest_checkpoint(output_dir: str) -> str | None:
         return None
 
     checkpoints = [
-        d for d in output_path.iterdir()
-        if d.is_dir() and d.name.startswith("checkpoint-")
+        d for d in output_path.iterdir() if d.is_dir() and d.name.startswith("checkpoint-")
     ]
 
     if not checkpoints:
@@ -250,14 +249,16 @@ def create_training_args(
 
     # Add evaluation arguments if eval dataset is provided
     if eval_dataset is not None:
-        args_dict.update({
-            "eval_strategy": "steps",
-            "eval_steps": config.save_steps,  # Eval at same frequency as checkpoints
-            "per_device_eval_batch_size": config.batch_size,
-            "load_best_model_at_end": True,
-            "metric_for_best_model": "eval_loss",
-            "greater_is_better": False,
-        })
+        args_dict.update(
+            {
+                "eval_strategy": "steps",
+                "eval_steps": config.save_steps,  # Eval at same frequency as checkpoints
+                "per_device_eval_batch_size": config.batch_size,
+                "load_best_model_at_end": True,
+                "metric_for_best_model": "eval_loss",
+                "greater_is_better": False,
+            }
+        )
 
     return TrainingArguments(**args_dict)
 
