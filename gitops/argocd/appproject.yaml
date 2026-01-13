@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: minicrit
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: MiniCrit AI Validation Platform
+
+  sourceRepos:
+    - https://github.com/antagoninc/MiniCrit-7B.git
+    - https://github.com/antagoninc/*
+
+  destinations:
+    - namespace: minicrit-*
+      server: https://kubernetes.default.svc
+    - namespace: minicrit
+      server: https://kubernetes.default.svc
+
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+    - group: networking.k8s.io
+      kind: Ingress
+
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: "*"
+    - group: apps
+      kind: "*"
+    - group: autoscaling
+      kind: "*"
+    - group: policy
+      kind: "*"
+    - group: networking.k8s.io
+      kind: "*"
+    - group: monitoring.coreos.com
+      kind: "*"
+
+  roles:
+    - name: developer
+      description: Developer access to minicrit applications
+      policies:
+        - p, proj:minicrit:developer, applications, get, minicrit/*, allow
+        - p, proj:minicrit:developer, applications, sync, minicrit/*, allow
+      groups:
+        - minicrit-developers
+
+    - name: admin
+      description: Admin access to minicrit applications
+      policies:
+        - p, proj:minicrit:admin, applications, *, minicrit/*, allow
+      groups:
+        - minicrit-admins

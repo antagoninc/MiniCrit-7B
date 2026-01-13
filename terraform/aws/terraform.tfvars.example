@@ -1,0 +1,26 @@
+# ================================================================
+# MiniCrit Terraform Variables Example
+# Copy to terraform.tfvars and customize
+# ================================================================
+
+aws_region   = "us-east-1"
+environment  = "dev"
+project_name = "minicrit"
+cluster_name = "minicrit-cluster"
+
+# VPC
+vpc_cidr             = "10.0.0.0/16"
+private_subnet_cidrs = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+public_subnet_cidrs  = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
+
+# CPU Nodes
+cpu_instance_types = ["m6i.xlarge"]
+cpu_node_min       = 1
+cpu_node_max       = 5
+cpu_node_desired   = 2
+
+# GPU Nodes
+gpu_instance_types = ["g5.xlarge"]
+gpu_node_min       = 0
+gpu_node_max       = 3
+gpu_node_desired   = 1

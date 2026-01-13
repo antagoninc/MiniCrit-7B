@@ -106,7 +106,8 @@ class InputValidator:
         domain_lower = domain.lower().strip()
         if domain_lower not in valid_domains:
             return ValidationResult(
-                valid=False, errors=[f"Invalid domain. Must be one of: {', '.join(sorted(valid_domains))}"]
+                valid=False,
+                errors=[f"Invalid domain. Must be one of: {', '.join(sorted(valid_domains))}"],
             )
 
         return ValidationResult(valid=True, sanitized_input=domain_lower)
@@ -244,7 +245,9 @@ class RequestSigner:
 
         ts = timestamp or time.time()
         message = f"{int(ts)}:{payload}"
-        signature = hmac.new(self._secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+        signature = hmac.new(
+            self._secret_key.encode(), message.encode(), hashlib.sha256
+        ).hexdigest()
         return f"t={int(ts)},v1={signature}"
 
     def verify_signature(self, payload: str, signature: str, max_age_seconds: int = 300) -> bool:
@@ -264,7 +267,9 @@ class RequestSigner:
 
             # Verify signature
             message = f"{timestamp}:{payload}"
-            expected_sig = hmac.new(self._secret_key.encode(), message.encode(), hashlib.sha256).hexdigest()
+            expected_sig = hmac.new(
+                self._secret_key.encode(), message.encode(), hashlib.sha256
+            ).hexdigest()
 
             return hmac.compare_digest(received_sig, expected_sig)
         except (ValueError, KeyError) as e:
@@ -413,7 +418,9 @@ def require_auth(scopes: Optional[list[str]] = None) -> Callable:
                     )
                     raise PermissionError("Insufficient permissions")
 
-            audit_logger.log_authentication(True, user_id=key_info.name if key_info else None, ip_address=ip_address)
+            audit_logger.log_authentication(
+                True, user_id=key_info.name if key_info else None, ip_address=ip_address
+            )
             return func(*args, **kwargs)
 
         return wrapper
