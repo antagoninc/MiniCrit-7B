@@ -18,12 +18,12 @@ Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
 
 from __future__ import annotations
 
-import time
 import threading
+import time
 from collections import defaultdict
+from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Generator
 
 
 @dataclass

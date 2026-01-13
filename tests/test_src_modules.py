@@ -11,13 +11,11 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
 
-from src.config import TrainingConfig, LoRAConfig, load_config
+from src.config import LoRAConfig, TrainingConfig, load_config
 from src.data import find_columns, validate_dataset
 
 # Note: find_latest_checkpoint is in src/training.py (file), not src/training/ (package)
@@ -346,7 +344,7 @@ def run_all_tests() -> bool:
                     method()
                     print(f"PASS: {test_class.__name__}.{method_name}")
                     passed += 1
-                except Exception as e:
+                except Exception:
                     print(f"FAIL: {test_class.__name__}.{method_name}")
                     traceback.print_exc()
                     failed += 1

@@ -132,8 +132,22 @@ target-version = ["py310", "py311", "py312"]
 
 [tool.ruff]
 line-length = 100
+
+[tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "C4"]
-ignore = ["E501"]
+ignore = [
+    "E501",   # Line too long - handled by black
+    "B905",   # zip() without strict= - not needed for Python 3.10+
+    "N806",   # Variable in function should be lowercase
+    "N815",   # Variable in class scope should not be mixedCase
+    "N818",   # Exception name should end with Error
+    "B011",   # Do not assert False
+    "B007",   # Loop control variable not used within loop body
+    "B008",   # Do not perform function call in argument defaults (FastAPI Depends)
+    "B904",   # Within except clause, raise with from err
+    "F401",   # Imported but unused (intentional for optional deps)
+    "F841",   # Local variable assigned but never used (test artifacts)
+]
 
 [tool.mypy]
 python_version = "3.10"

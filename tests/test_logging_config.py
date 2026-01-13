@@ -10,22 +10,20 @@ import logging
 import sys
 import tempfile
 from datetime import datetime
-from io import StringIO
 from pathlib import Path
-from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.logging_config import (
-    StructuredFormatter,
-    ColoredFormatter,
-    MetricsFilter,
-    LogContext,
-    TrainingLogger,
-    setup_logging,
-    get_logger,
-    DEFAULT_LOG_LEVEL,
     DEFAULT_LOG_FORMAT,
+    DEFAULT_LOG_LEVEL,
+    ColoredFormatter,
+    LogContext,
+    MetricsFilter,
+    StructuredFormatter,
+    TrainingLogger,
+    get_logger,
+    setup_logging,
 )
 
 
@@ -458,7 +456,7 @@ def run_all_tests() -> bool:
                     method()
                     print(f"PASS: {test_class.__name__}.{method_name}")
                     passed += 1
-                except Exception as e:
+                except Exception:
                     print(f"FAIL: {test_class.__name__}.{method_name}")
                     traceback.print_exc()
                     failed += 1

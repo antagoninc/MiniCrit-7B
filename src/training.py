@@ -30,7 +30,6 @@ from transformers import (
 if TYPE_CHECKING:
     from datasets import Dataset, DatasetDict
     from peft import PeftModel
-    from transformers import PreTrainedTokenizer
 
     from src.config import TrainingConfig
 

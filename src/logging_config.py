@@ -21,10 +21,11 @@ import json
 import logging
 import os
 import sys
+from collections.abc import Callable
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any
 
 # Default configuration
 DEFAULT_LOG_LEVEL = "INFO"
@@ -288,9 +289,9 @@ class LogContext:
             **kwargs: Key-value pairs to add to log records.
         """
         self.context = kwargs
-        self.old_factory: Optional[Callable[..., logging.LogRecord]] = None
+        self.old_factory: Callable[..., logging.LogRecord] | None = None
 
-    def __enter__(self) -> "LogContext":
+    def __enter__(self) -> LogContext:
         """Enter the context, adding fields to log records."""
         self.old_factory = logging.getLogRecordFactory()
 

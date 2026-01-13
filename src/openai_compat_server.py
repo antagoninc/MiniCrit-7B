@@ -38,23 +38,22 @@ Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
 from __future__ import annotations
 
 import asyncio
-import json
-import logging
 import os
 import time
 import uuid
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
-from typing import Any, AsyncGenerator, Literal
+from dataclasses import dataclass
+from typing import Any, Literal
 
 # ANTAGON-MINICRIT: Third-party imports
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 # ANTAGON-MINICRIT: Local imports
-from src.logging_config import setup_logging, get_logger
+from src.logging_config import get_logger, setup_logging
 
 # L4-STRUCTURAL: Initialize logging first (Antagon standard)
 setup_logging()
@@ -385,9 +384,9 @@ async def antagon_generate_stream(
     if not antagon_state.antagon_loaded:
         antagon_load_model()
 
-    import torch
-    from transformers import TextIteratorStreamer
     from threading import Thread
+
+    from transformers import TextIteratorStreamer
 
     antagon_model = antagon_state.antagon_model
     antagon_tokenizer = antagon_state.antagon_tokenizer

@@ -6,32 +6,29 @@ rate limiting, and graceful shutdown.
 
 from __future__ import annotations
 
-import asyncio
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.mcp.core import (
-    ModelManager,
-    CritiqueGenerator,
-    RateLimiter,
-    GracefulShutdown,
-    CritiqueResult,
-    Severity,
-    ModelNotLoadedError,
-    ModelLoadError,
-    InferenceTimeoutError,
-    InferenceError,
-    InvalidInputError,
     DOMAINS,
-    get_model_manager,
-    get_critique_generator,
+    CritiqueGenerator,
+    CritiqueResult,
+    GracefulShutdown,
+    InferenceError,
+    InferenceTimeoutError,
+    InvalidInputError,
+    ModelLoadError,
+    ModelManager,
+    ModelNotLoadedError,
+    RateLimiter,
+    Severity,
     get_cors_origins,
+    get_critique_generator,
+    get_model_manager,
 )
-
 
 # ================================================================
 # ModelManager Tests
@@ -710,6 +707,7 @@ class TestQuantization:
         """Test quantization config reads from environment."""
         # Re-import to pick up env var
         import importlib
+
         import src.mcp.core as core_module
 
         importlib.reload(core_module)
@@ -723,6 +721,7 @@ class TestQuantization:
     def test_quantization_invalid_falls_back(self):
         """Test invalid quantization falls back to none."""
         import importlib
+
         import src.mcp.core as core_module
 
         importlib.reload(core_module)

@@ -15,10 +15,8 @@ Antagon Inc. | CAGE: 17E75
 """
 
 import random
-import string
-from locust import HttpUser, task, between, tag, events
-from locust.runners import MasterRunner
 
+from locust import HttpUser, between, events, tag, task
 
 # Sample rationales for testing
 SAMPLE_RATIONALES = [

@@ -25,7 +25,6 @@ Usage:
 import argparse
 import json
 import sys
-from typing import Optional
 
 
 def main():
@@ -121,7 +120,7 @@ def main():
 
     # File input
     if args.file:
-        with open(args.file, "r") as f:
+        with open(args.file) as f:
             for line in f:
                 line = line.strip()
                 if line:

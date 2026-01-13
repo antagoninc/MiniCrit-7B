@@ -29,26 +29,22 @@ Requirements:
     pip install torch transformers peft trl datasets wandb
 """
 
-import os
-import sys
-import json
 import argparse
+import json
 import logging
+import os
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import torch
-from datasets import Dataset
-from transformers import (
-    AutoTokenizer,
-    AutoModelForCausalLM,
-    TrainingArguments,
-)
-from peft import LoraConfig, get_peft_model, TaskType
-from trl import DPOTrainer, DPOConfig
-
 import wandb
+from datasets import Dataset
+from peft import LoraConfig, TaskType, get_peft_model
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+)
+from trl import DPOConfig, DPOTrainer
 
 # ================================================================
 # Configuration
@@ -80,7 +76,7 @@ def load_dpo_data(filepath: str) -> Dataset:
 
     data: dict[str, list[str]] = {"prompt": [], "chosen": [], "rejected": []}
 
-    with open(filepath, "r") as f:
+    with open(filepath) as f:
         for line in f:
             item = json.loads(line)
             data["prompt"].append(item["prompt"])
@@ -321,7 +317,7 @@ def main():
         print(f"Generated: {r['generated']}")
 
     print(f"\n{'=' * 60}")
-    print(f"✅ DPO Training Complete!")
+    print("✅ DPO Training Complete!")
     print(f"   Model saved to: {args.output}")
     print("=" * 60)
 

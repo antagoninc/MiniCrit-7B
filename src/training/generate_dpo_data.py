@@ -33,19 +33,18 @@ Requires:
     pip install torch transformers anthropic
 """
 
-import os
-import sys
-import json
 import argparse
+import json
+import os
 import random
-from datetime import datetime
-from typing import List, Dict, Optional, Tuple
-from dataclasses import dataclass
+import sys
 import time
+from dataclasses import dataclass
+from datetime import datetime
 
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from tqdm import tqdm
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 # ================================================================
 # Configuration
@@ -112,7 +111,7 @@ class CritiqueGenerator:
         rationale: str,
         domain: str,
         num_candidates: int = NUM_CANDIDATES,
-    ) -> List[Tuple[str, float]]:
+    ) -> list[tuple[str, float]]:
         """Generate multiple critique candidates with varying temperatures."""
 
         prompt = f"### Domain: {domain}\n### Rationale:\n{rationale}\n\n### Critique:\n"
@@ -258,11 +257,11 @@ def score_critique(
 
 
 def create_dpo_pairs(
-    candidates: List[Tuple[str, float]],
+    candidates: list[tuple[str, float]],
     rationale: str,
     domain: str,
     use_llm: bool = False,
-) -> List[DPOPair]:
+) -> list[DPOPair]:
     """Create DPO pairs from scored candidates."""
 
     # Score all candidates
@@ -324,7 +323,7 @@ def main():
 
     # Load input data
     examples = []
-    with open(args.input, "r") as f:
+    with open(args.input) as f:
         for line in f:
             examples.append(json.loads(line))
 
@@ -363,7 +362,7 @@ def main():
             f.write(json.dumps(pair.to_dict()) + "\n")
 
     print(f"\n{'=' * 60}")
-    print(f"✅ Complete!")
+    print("✅ Complete!")
     print(f"   Input examples: {len(examples)}")
     print(f"   DPO pairs generated: {len(all_pairs)}")
     print(f"   Output: {args.output}")
@@ -373,7 +372,7 @@ def main():
     if all_pairs:
         avg_chosen = sum(p.chosen_score for p in all_pairs) / len(all_pairs)
         avg_rejected = sum(p.rejected_score for p in all_pairs) / len(all_pairs)
-        print(f"\n📊 Score distribution:")
+        print("\n📊 Score distribution:")
         print(f"   Avg chosen score: {avg_chosen:.3f}")
         print(f"   Avg rejected score: {avg_rejected:.3f}")
         print(f"   Avg margin: {avg_chosen - avg_rejected:.3f}")

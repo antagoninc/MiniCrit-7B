@@ -35,22 +35,20 @@ Requirements:
     pip install torch transformers peft pandas numpy tqdm anthropic
 """
 
-import os
-import sys
-import json
-import time
 import argparse
+import json
 import logging
-from pathlib import Path
-from datetime import datetime
-from dataclasses import dataclass, asdict
-from typing import Optional, List, Dict, Any
-from collections import defaultdict
+import os
 import statistics
+import time
+from collections import defaultdict
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Any
 
-import torch
-import pandas as pd
 import numpy as np
+import torch
 from tqdm import tqdm
 
 # ================================================================
@@ -116,7 +114,7 @@ class BenchmarkResult:
     false_positive_rate: float
 
     # Detection metrics by type
-    detection_by_type: Dict[str, Dict[str, float]]
+    detection_by_type: dict[str, dict[str, float]]
 
     # Memory usage
     peak_memory_gb: float
@@ -144,7 +142,7 @@ class ModelLoader:
 
     def load(self):
         """Load model and tokenizer."""
-        from transformers import AutoTokenizer, AutoModelForCausalLM
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
         logger.info(f"Loading model: {self.model_path}")
         start_time = time.time()
@@ -226,11 +224,11 @@ class ModelLoader:
 # ================================================================
 
 
-def load_eval_data(eval_path: str) -> List[EvalExample]:
+def load_eval_data(eval_path: str) -> list[EvalExample]:
     """Load evaluation data from JSONL file."""
     examples = []
 
-    with open(eval_path, "r") as f:
+    with open(eval_path) as f:
         for i, line in enumerate(f):
             data = json.loads(line)
             examples.append(
@@ -302,9 +300,9 @@ def is_false_positive(critique: str) -> bool:
 
 def evaluate_model(
     model: ModelLoader,
-    examples: List[EvalExample],
+    examples: list[EvalExample],
     progress_desc: str = "Evaluating",
-) -> tuple[List[ModelOutput], Dict[str, Any]]:
+) -> tuple[list[ModelOutput], dict[str, Any]]:
     """Run evaluation on all examples."""
 
     outputs = []
@@ -349,8 +347,8 @@ def evaluate_model(
 
 def compute_benchmark_result(
     model_name: str,
-    outputs: List[ModelOutput],
-    metrics: Dict[str, Any],
+    outputs: list[ModelOutput],
+    metrics: dict[str, Any],
     model_size: str = "unknown",
 ) -> BenchmarkResult:
     """Compute aggregated benchmark metrics."""
@@ -408,7 +406,7 @@ def llm_judge_comparison(
     critique_2: str,
     model_1_name: str,
     model_2_name: str,
-) -> Optional[Dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Use Claude to judge which critique is better.
 
@@ -427,7 +425,7 @@ def llm_judge_comparison(
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    prompt = f"""You are evaluating two AI-generated critiques of reasoning. 
+    prompt = f"""You are evaluating two AI-generated critiques of reasoning.
 
 The original rationale being critiqued:
 <rationale>
@@ -472,7 +470,7 @@ Respond with JSON only:
 
         result_text = response.content[0].text
         # Parse JSON from response
-        result: Dict[str, Any] = json.loads(result_text)
+        result: dict[str, Any] = json.loads(result_text)
         result["model_a"] = model_1_name
         result["model_b"] = model_2_name
         return result
@@ -490,7 +488,7 @@ Respond with JSON only:
 def generate_report(
     result_1: BenchmarkResult,
     result_2: BenchmarkResult,
-    judge_results: Optional[List[Dict]] = None,
+    judge_results: list[dict] | None = None,
     output_dir: str = "./benchmark_results",
 ):
     """Generate benchmark comparison report."""
@@ -516,7 +514,7 @@ def generate_report(
 
     # Add judge results if available
     if judge_results:
-        wins: Dict[str, int] = defaultdict(int)
+        wins: dict[str, int] = defaultdict(int)
         for r in judge_results:
             if r:
                 winner = r.get("winner", "tie")

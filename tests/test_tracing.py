@@ -3,21 +3,22 @@
 Antagon Inc. | CAGE: 17E75
 """
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from src.tracing import (
     NoOpSpan,
     NoOpTracer,
-    init_tracing,
-    get_tracer,
-    reset_tracing,
-    trace_span,
-    trace_function,
-    trace_async_function,
-    add_span_attributes,
-    record_exception,
     SpanAttributes,
+    add_span_attributes,
+    get_tracer,
+    init_tracing,
+    record_exception,
+    reset_tracing,
+    trace_async_function,
+    trace_function,
+    trace_span,
 )
 
 

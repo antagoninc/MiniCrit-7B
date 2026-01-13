@@ -19,13 +19,11 @@ Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
 # ANTAGON-MINICRIT: Standard library imports
 from __future__ import annotations
 
-import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 # ANTAGON-MINICRIT: Third-party imports
 import pytest
 from fastapi.testclient import TestClient
-
 
 # ================================================================
 # L3-SEMANTIC: Test Fixtures
@@ -260,7 +258,7 @@ class TestMessageFormatting:
 
     def test_format_user_message(self):
         """L2-DOCSTRING: Test user message formatting."""
-        from src.openai_compat_server import antagon_format_messages, ChatMessage
+        from src.openai_compat_server import ChatMessage, antagon_format_messages
 
         antagon_messages = [
             ChatMessage(role="user", content="Test rationale"),
@@ -273,7 +271,7 @@ class TestMessageFormatting:
 
     def test_format_system_message(self):
         """L2-DOCSTRING: Test system message formatting."""
-        from src.openai_compat_server import antagon_format_messages, ChatMessage
+        from src.openai_compat_server import ChatMessage, antagon_format_messages
 
         antagon_messages = [
             ChatMessage(role="system", content="System prompt"),
@@ -286,7 +284,7 @@ class TestMessageFormatting:
 
     def test_format_conversation(self):
         """L2-DOCSTRING: Test multi-turn conversation formatting."""
-        from src.openai_compat_server import antagon_format_messages, ChatMessage
+        from src.openai_compat_server import ChatMessage, antagon_format_messages
 
         antagon_messages = [
             ChatMessage(role="user", content="First input"),

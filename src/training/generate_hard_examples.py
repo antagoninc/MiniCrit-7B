@@ -30,14 +30,13 @@ Requirements:
     pip install anthropic
 """
 
-import os
-import sys
-import json
-import random
 import argparse
-from datetime import datetime
-from typing import Optional
+import json
+import os
+import random
+import sys
 import time
+from datetime import datetime
 
 try:
     import anthropic
@@ -236,7 +235,7 @@ Output JSON only.""",
 # ================================================================
 
 
-def generate_example(client: anthropic.Anthropic, example_type: str, domain: str) -> Optional[dict]:
+def generate_example(client: anthropic.Anthropic, example_type: str, domain: str) -> dict | None:
     """Generate a single example using Claude Sonnet."""
 
     domain_info = DOMAINS[domain]
@@ -336,14 +335,14 @@ def main():
     print(f"\nTarget: {args.count} examples")
     print(f"Output: {args.output}")
     print(f"Estimated cost: ~${args.count * 0.006:.2f}")
-    print(f"\nExample type distribution:")
+    print("\nExample type distribution:")
     for t, w in EXAMPLE_TYPES.items():
         print(f"  {t}: {w*100:.0f}%")
 
     # Resume support
     generated = 0
     if args.resume and os.path.exists(args.output):
-        with open(args.output, "r") as f:
+        with open(args.output) as f:
             generated = sum(1 for _ in f)
         print(f"\nResuming from {generated} existing examples")
 
@@ -382,7 +381,7 @@ def main():
             time.sleep(1.2)
 
     print(f"\n\n{'=' * 60}")
-    print(f"✅ Complete!")
+    print("✅ Complete!")
     print(f"   Generated: {generated}")
     print(f"   Failed: {failed}")
     print(f"   Estimated cost: ~${generated * 0.006:.2f}")
@@ -394,7 +393,7 @@ def main():
     domain_counts = {}
     valid_counts = {"true": 0, "false": 0}
 
-    with open(args.output, "r") as f:
+    with open(args.output) as f:
         for line in f:
             ex = json.loads(line)
             t = ex.get("data_type", "unknown")
@@ -405,7 +404,7 @@ def main():
             if v in valid_counts:
                 valid_counts[v] += 1
 
-    print(f"\n📊 Distribution:")
+    print("\n📊 Distribution:")
     print(f"   By type: {type_counts}")
     print(f"   By domain: {domain_counts}")
     print(f"   Valid/Invalid: {valid_counts}")

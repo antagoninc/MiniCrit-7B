@@ -15,8 +15,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from src.evaluation import (
     EvaluationResult,
     compute_rouge_scores,
-    save_evaluation_results,
     load_test_data,
+    save_evaluation_results,
 )
 
 
@@ -391,7 +391,7 @@ def run_all_tests() -> bool:
                     method()
                     print(f"PASS: {test_class.__name__}.{method_name}")
                     passed += 1
-                except Exception as e:
+                except Exception:
                     print(f"FAIL: {test_class.__name__}.{method_name}")
                     traceback.print_exc()
                     failed += 1

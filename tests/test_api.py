@@ -7,21 +7,19 @@ Uses mock implementations when fastapi/pydantic are not available.
 from __future__ import annotations
 
 import sys
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Try to import from actual module, fall back to mock implementations
 try:
     from src.api import (
-        CritiqueRequest,
-        CritiqueResponse,
         BatchCritiqueRequest,
         BatchCritiqueResponse,
+        CritiqueRequest,
+        CritiqueResponse,
         HealthResponse,
         StatsResponse,
         _model_state,
@@ -430,7 +428,7 @@ def run_all_tests() -> bool:
                     method()
                     print(f"PASS: {test_class.__name__}.{method_name}")
                     passed += 1
-                except Exception as e:
+                except Exception:
                     print(f"FAIL: {test_class.__name__}.{method_name}")
                     traceback.print_exc()
                     failed += 1

@@ -254,7 +254,7 @@ def run_all_tests() -> None:
             test()
             print(f"PASS: {test.__name__}")
             passed += 1
-        except Exception as e:
+        except Exception:
             print(f"FAIL: {test.__name__}")
             traceback.print_exc()
             failed += 1

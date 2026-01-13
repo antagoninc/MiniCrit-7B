@@ -45,28 +45,25 @@ Environment Variables:
     REDIS_URL: Redis URL for rate limiting (optional)
 """
 
-import os
-import sys
-import json
-import logging
-import time
 import asyncio
 import hashlib
+import json
+import logging
+import os
 import secrets
-from typing import Optional, Any, Dict
-from datetime import datetime, timedelta
-from enum import Enum
-from dataclasses import dataclass, asdict
+import time
 from collections import defaultdict
-from functools import wraps
+from datetime import datetime
+from enum import Enum
+
+import uvicorn
 
 # Web framework
-from fastapi import FastAPI, HTTPException, Depends, Header, Query, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 from fastapi.security import APIKeyHeader, APIKeyQuery
 from pydantic import BaseModel, Field
-import uvicorn
 
 # ================================================================
 # Configuration
@@ -125,7 +122,7 @@ class RateLimiter:
     def __init__(self, limit: int = 60, window: int = 60):
         self.limit = limit
         self.window = window  # seconds
-        self.requests: Dict[str, list] = defaultdict(list)
+        self.requests: dict[str, list] = defaultdict(list)
 
     def is_allowed(self, key: str) -> tuple[bool, int]:
         """Check if request is allowed. Returns (allowed, remaining)."""
@@ -157,8 +154,8 @@ class APIKeyManager:
     """Manage API keys with usage tracking."""
 
     def __init__(self):
-        self.keys: Dict[str, dict] = {}
-        self.usage: Dict[str, dict] = defaultdict(
+        self.keys: dict[str, dict] = {}
+        self.usage: dict[str, dict] = defaultdict(
             lambda: {
                 "total_requests": 0,
                 "total_tokens": 0,
@@ -186,7 +183,7 @@ class APIKeyManager:
         }
         return key_hash
 
-    def validate_key(self, key: str) -> Optional[dict]:
+    def validate_key(self, key: str) -> dict | None:
         """Validate an API key and return its info."""
         if not key:
             return None
@@ -267,7 +264,7 @@ async def get_model():
         logger.info(f"Loading MiniCrit model: {MODEL_ID}")
 
         import torch
-        from transformers import AutoTokenizer, AutoModelForCausalLM
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
         _tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
         if _tokenizer.pad_token is None:
@@ -301,7 +298,7 @@ class Severity(str, Enum):
 class ValidateRequest(BaseModel):
     rationale: str = Field(..., description="The AI reasoning to validate", max_length=10000)
     domain: str = Field("general", description="Domain context")
-    context: Optional[str] = Field(None, description="Additional context", max_length=5000)
+    context: str | None = Field(None, description="Additional context", max_length=5000)
 
 
 class BatchItem(BaseModel):
@@ -341,8 +338,8 @@ api_key_query = APIKeyQuery(name="api_key", auto_error=False)
 
 async def get_api_key(
     request: Request,
-    api_key_header: Optional[str] = Depends(api_key_header),
-    api_key_query: Optional[str] = Depends(api_key_query),
+    api_key_header: str | None = Depends(api_key_header),
+    api_key_query: str | None = Depends(api_key_query),
 ) -> dict:
     """Validate API key from header or query parameter."""
 
@@ -402,7 +399,7 @@ async def require_admin(key_info: dict = Depends(get_api_key)) -> dict:
 async def generate_critique(
     rationale: str,
     domain: str = "general",
-    context: Optional[str] = None,
+    context: str | None = None,
     request_id: str = "",
 ) -> CritiqueResponse:
     """Generate adversarial critique."""

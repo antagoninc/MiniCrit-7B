@@ -5,9 +5,8 @@ Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
 
 import time
 
-import pytest
-
 from src.security import (
+    SECURITY_HEADERS,
     APIKey,
     APIKeyManager,
     AuditEvent,
@@ -16,7 +15,6 @@ from src.security import (
     RequestSigner,
     ValidationResult,
     add_security_headers,
-    SECURITY_HEADERS,
 )
 
 

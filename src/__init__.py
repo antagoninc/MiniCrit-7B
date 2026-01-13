@@ -43,7 +43,6 @@ __email__ = "founders@antagon.ai"
 __license__ = "Apache-2.0"
 
 from dataclasses import dataclass
-from typing import Optional, List
 from enum import Enum
 
 
@@ -65,7 +64,7 @@ class CritiqueResult:
     severity: str
     critique: str
     confidence: float
-    flags: List[str]
+    flags: list[str]
     domain: str
     latency_ms: float
 
@@ -137,8 +136,8 @@ class MiniCrit:
     def _load_model(self):
         """Load model and tokenizer."""
         import torch
-        from transformers import AutoTokenizer, AutoModelForCausalLM
         from peft import PeftModel
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
         # Determine device
         if self.device == "auto":
@@ -175,7 +174,7 @@ class MiniCrit:
         self,
         rationale: str,
         domain: str = "general",
-        context: Optional[str] = None,
+        context: str | None = None,
     ) -> CritiqueResult:
         """
         Validate AI reasoning.
@@ -188,8 +187,9 @@ class MiniCrit:
         Returns:
             CritiqueResult with valid, severity, critique, flags
         """
-        import torch
         import time
+
+        import torch
 
         if self._model is None:
             self._load_model()
@@ -269,9 +269,9 @@ class MiniCrit:
 
     def batch_validate(
         self,
-        rationales: List[str],
+        rationales: list[str],
         domain: str = "general",
-    ) -> List[CritiqueResult]:
+    ) -> list[CritiqueResult]:
         """Validate multiple rationales."""
         return [self.validate(r, domain=domain) for r in rationales]
 

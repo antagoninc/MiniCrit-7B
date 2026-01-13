@@ -38,38 +38,36 @@ Environment Variables:
     MINICRIT_PRELOAD: Set to "true" to preload model on startup
 """
 
-import os
+import asyncio
 import json
 import logging
-import asyncio
+import os
 import secrets
-from datetime import datetime
-from typing import Optional
 from contextlib import asynccontextmanager
+from datetime import datetime
+
+import uvicorn
 
 # Web framework
-from fastapi import FastAPI, HTTPException, Header, Request
+from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-import uvicorn
 
 # Import from core module
 from src.mcp.core import (
-    ModelManager,
-    CritiqueGenerator,
-    CritiqueResult,
-    RateLimiter,
-    GracefulShutdown,
-    ModelLoadError,
-    InferenceTimeoutError,
-    InferenceError,
-    InvalidInputError,
-    DOMAINS,
     ADAPTER_ID,
     BASE_MODEL_ID,
     DEVICE,
+    DOMAINS,
     LOG_LEVEL,
+    CritiqueGenerator,
+    GracefulShutdown,
+    InferenceError,
+    InferenceTimeoutError,
+    InvalidInputError,
+    ModelLoadError,
+    ModelManager,
     get_cors_origins,
 )
 
@@ -115,7 +113,7 @@ class ValidateRequest(BaseModel):
         max_length=10000,
     )
     domain: str = Field("general", description="Domain context")
-    context: Optional[str] = Field(None, description="Additional context", max_length=5000)
+    context: str | None = Field(None, description="Additional context", max_length=5000)
 
 
 class BatchItem(BaseModel):
@@ -213,7 +211,7 @@ app.add_middleware(
 # ================================================================
 
 
-async def verify_api_key(x_api_key: Optional[str] = Header(None)):
+async def verify_api_key(x_api_key: str | None = Header(None)):
     """Verify API key if configured."""
     if API_KEY and x_api_key != API_KEY:
         raise HTTPException(

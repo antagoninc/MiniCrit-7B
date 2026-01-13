@@ -89,7 +89,7 @@ class CostEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "CostEntry":
+    def from_dict(cls, data: dict[str, Any]) -> CostEntry:
         """Create from dictionary."""
         return cls(
             timestamp=datetime.fromisoformat(data["timestamp"]),

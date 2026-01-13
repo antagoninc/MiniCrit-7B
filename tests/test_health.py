@@ -4,14 +4,13 @@ Antagon Inc. | CAGE: 17E75
 """
 
 import time
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from src.health import (
-    HealthStatus,
     CheckResult,
-    HealthResponse,
     HealthChecker,
+    HealthResponse,
+    HealthStatus,
     get_health_checker,
     reset_health_checker,
 )

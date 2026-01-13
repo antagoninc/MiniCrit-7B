@@ -26,37 +26,36 @@ Environment variables:
     MINICRIT_PRELOAD: Set to "true" to preload model on startup
 """
 
-import os
-import sys
+import asyncio
 import json
 import logging
-import asyncio
-from typing import Optional
+import os
+import sys
 
 # MCP SDK imports
 try:
-    from mcp.server import Server
     from mcp.server.stdio import stdio_server
-    from mcp.types import Tool, TextContent, CallToolResult
+    from mcp.types import CallToolResult, TextContent, Tool
+
+    from mcp.server import Server
 except ImportError:
     print("Error: MCP SDK not installed. Run: pip install mcp", file=sys.stderr)
     sys.exit(1)
 
 # Import from core module
 from src.mcp.core import (
-    ModelManager,
-    CritiqueGenerator,
-    CritiqueResult,
-    GracefulShutdown,
-    ModelLoadError,
-    InferenceTimeoutError,
-    InferenceError,
-    InvalidInputError,
-    DOMAINS,
     ADAPTER_ID,
     BASE_MODEL_ID,
     DEVICE,
+    DOMAINS,
     LOG_LEVEL,
+    CritiqueGenerator,
+    GracefulShutdown,
+    InferenceError,
+    InferenceTimeoutError,
+    InvalidInputError,
+    ModelLoadError,
+    ModelManager,
 )
 
 # ================================================================

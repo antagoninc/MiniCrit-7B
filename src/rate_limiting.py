@@ -22,7 +22,7 @@ import os
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -383,15 +383,15 @@ class FallbackRateLimiter(BaseRateLimiter):
 
 
 # Global rate limiter instance
-_rate_limiter: Optional[BaseRateLimiter] = None
+_rate_limiter: BaseRateLimiter | None = None
 _limiter_lock = threading.Lock()
 
 
 def get_rate_limiter(
-    backend: Optional[str] = None,
-    redis_url: Optional[str] = None,
-    limit: Optional[int] = None,
-    window: Optional[int] = None,
+    backend: str | None = None,
+    redis_url: str | None = None,
+    limit: int | None = None,
+    window: int | None = None,
 ) -> BaseRateLimiter:
     """Get or create the global rate limiter instance.
 

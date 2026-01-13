@@ -19,10 +19,11 @@ import re
 import signal
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
-from dataclasses import dataclass, asdict
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FuturesTimeoutError
+from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Optional, Any, Callable
+from typing import Any
 
 # ================================================================
 # Configuration
@@ -246,7 +247,7 @@ class InputSanitizer:
 
         return clean
 
-    def validate_context(self, context: Optional[str]) -> Optional[str]:
+    def validate_context(self, context: str | None) -> str | None:
         """Validate and sanitize context input.
 
         Args:
@@ -316,8 +317,8 @@ class InputSanitizer:
         self,
         rationale: str,
         domain: str = "general",
-        context: Optional[str] = None,
-    ) -> tuple[str, str, Optional[str]]:
+        context: str | None = None,
+    ) -> tuple[str, str, str | None]:
         """Validate and sanitize all inputs at once.
 
         Args:
@@ -340,7 +341,7 @@ class InputSanitizer:
 
 
 # Global sanitizer instance
-_input_sanitizer: Optional[InputSanitizer] = None
+_input_sanitizer: InputSanitizer | None = None
 
 
 def get_input_sanitizer() -> InputSanitizer:
@@ -369,7 +370,7 @@ class ModelManager:
         >>> model, tokenizer = await manager.get_model_async()
     """
 
-    _instance: Optional[ModelManager] = None
+    _instance: ModelManager | None = None
     _lock = threading.Lock()
 
     def __new__(cls) -> ModelManager:
@@ -394,10 +395,10 @@ class ModelManager:
         self._model = None
         self._tokenizer = None
         self._model_lock = threading.RLock()
-        self._async_lock: Optional[asyncio.Lock] = None
+        self._async_lock: asyncio.Lock | None = None
         self._is_loading = False
-        self._load_error: Optional[Exception] = None
-        self._device: Optional[str] = None
+        self._load_error: Exception | None = None
+        self._device: str | None = None
         self._quantization_mode: str = "none"
         self._stats = {
             "total_requests": 0,
@@ -415,7 +416,7 @@ class ModelManager:
         return self._model is not None
 
     @property
-    def device(self) -> Optional[str]:
+    def device(self) -> str | None:
         """Get device model is loaded on."""
         return self._device
 
@@ -431,7 +432,7 @@ class ModelManager:
         stats["quantization"] = self._quantization_mode
         return stats  # type: ignore[no-any-return]
 
-    def get_model(self, timeout: Optional[float] = None) -> tuple[Any, Any]:
+    def get_model(self, timeout: float | None = None) -> tuple[Any, Any]:
         """Get model and tokenizer, loading if necessary.
 
         Thread-safe synchronous model access.
@@ -456,7 +457,7 @@ class ModelManager:
             self._load_model_sync(timeout)
             return self._model, self._tokenizer
 
-    async def get_model_async(self, timeout: Optional[float] = None) -> tuple[Any, Any]:
+    async def get_model_async(self, timeout: float | None = None) -> tuple[Any, Any]:
         """Get model and tokenizer asynchronously.
 
         Async-safe model access with proper locking.
@@ -480,7 +481,7 @@ class ModelManager:
 
             return self._model, self._tokenizer
 
-    def _load_model_sync(self, timeout: Optional[float] = None) -> None:
+    def _load_model_sync(self, timeout: float | None = None) -> None:
         """Load model synchronously with optional quantization.
 
         Supports 8-bit and 4-bit quantization via bitsandbytes library.
@@ -502,8 +503,8 @@ class ModelManager:
             self._logger.info(f"Loading adapter: {ADAPTER_ID}")
 
             import torch
-            from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
             from peft import PeftModel
+            from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 
             # Check quantization configuration
             quantize = QUANTIZATION if QUANTIZATION in VALID_QUANTIZATION_OPTIONS else "none"
@@ -518,8 +519,8 @@ class ModelManager:
                     self._logger.info(f"bitsandbytes available, using {quantize} quantization")
                 except ImportError:
                     self._logger.warning(
-                        f"bitsandbytes not installed, falling back to fp16. "
-                        f"Install with: pip install bitsandbytes>=0.41.0"
+                        "bitsandbytes not installed, falling back to fp16. "
+                        "Install with: pip install bitsandbytes>=0.41.0"
                     )
                     quantize = "none"
 
@@ -686,8 +687,8 @@ class CritiqueGenerator:
 
     def __init__(
         self,
-        model_manager: Optional[ModelManager] = None,
-        sanitizer: Optional[InputSanitizer] = None,
+        model_manager: ModelManager | None = None,
+        sanitizer: InputSanitizer | None = None,
     ):
         """Initialize critique generator.
 
@@ -726,9 +727,9 @@ class CritiqueGenerator:
         self,
         rationale: str,
         domain: str = "general",
-        context: Optional[str] = None,
+        context: str | None = None,
         request_id: str = "",
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> CritiqueResult:
         """Generate critique synchronously with timeout.
 
@@ -766,9 +767,9 @@ class CritiqueGenerator:
         self,
         rationale: str,
         domain: str = "general",
-        context: Optional[str] = None,
+        context: str | None = None,
         request_id: str = "",
-        timeout: Optional[float] = None,
+        timeout: float | None = None,
     ) -> CritiqueResult:
         """Generate critique asynchronously with timeout.
 
@@ -814,7 +815,7 @@ class CritiqueGenerator:
         self,
         rationale: str,
         domain: str,
-        context: Optional[str],
+        context: str | None,
         request_id: str,
     ) -> CritiqueResult:
         """Internal implementation of critique generation."""
@@ -1032,7 +1033,7 @@ class GracefulShutdown:
         >>> # On SIGTERM/SIGINT, model will be unloaded
     """
 
-    def __init__(self, model_manager: Optional[ModelManager] = None):
+    def __init__(self, model_manager: ModelManager | None = None):
         """Initialize shutdown handler.
 
         Args:

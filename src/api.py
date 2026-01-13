@@ -16,7 +16,7 @@ Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
 
 from __future__ import annotations
 
-import logging
+import os
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -24,9 +24,10 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
-from src.logging_config import setup_logging, get_logger
+from src.logging_config import get_logger, setup_logging
 from src.metrics import metrics, track_request
 
 # Initialize logging
@@ -34,7 +35,6 @@ setup_logging()
 logger = get_logger(__name__)
 
 # CORS configuration - configurable via environment variable
-import os
 
 CORS_ORIGINS = os.environ.get(
     "MINICRIT_CORS_ORIGINS", "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000"
@@ -179,8 +179,8 @@ def load_model(model_path: str | None = None) -> None:
 
     try:
         import torch
-        from transformers import AutoModelForCausalLM, AutoTokenizer
         from peft import PeftModel
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
         # Default paths
         base_model = "Qwen/Qwen2-7B-Instruct"
@@ -220,19 +220,19 @@ def load_model(model_path: str | None = None) -> None:
 
     except ImportError as e:
         logger.error(f"Missing dependency: {e}")
-        raise HTTPException(status_code=500, detail=f"Missing dependency: {e}")
+        raise HTTPException(status_code=500, detail=f"Missing dependency: {e}") from e
     except FileNotFoundError as e:
         logger.error(f"Model files not found: {e}")
-        raise HTTPException(status_code=500, detail=f"Model files not found: {e}")
+        raise HTTPException(status_code=500, detail=f"Model files not found: {e}") from e
     except RuntimeError as e:
         if "out of memory" in str(e).lower():
             logger.error(f"GPU out of memory: {e}")
-            raise HTTPException(status_code=503, detail="GPU out of memory")
+            raise HTTPException(status_code=503, detail="GPU out of memory") from e
         logger.error(f"Runtime error loading model: {e}")
-        raise HTTPException(status_code=500, detail=f"Model loading failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Model loading failed: {e}") from e
     except (ValueError, OSError) as e:
         logger.error(f"Model loading failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Model loading failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Model loading failed: {e}") from e
 
 
 def generate_critique(
@@ -327,9 +327,6 @@ async def get_stats() -> StatsResponse:
     )
 
 
-from fastapi.responses import PlainTextResponse
-
-
 @app.get("/metrics", response_class=PlainTextResponse)
 async def prometheus_metrics() -> str:
     """Expose Prometheus metrics endpoint.
@@ -386,16 +383,16 @@ async def create_critique(request: CritiqueRequest) -> CritiqueResponse:
 
         except ValueError as e:
             logger.warning(f"Invalid input: {e}")
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=str(e)) from e
         except RuntimeError as e:
             if "out of memory" in str(e).lower():
                 logger.error(f"GPU out of memory: {e}")
-                raise HTTPException(status_code=503, detail="GPU out of memory")
+                raise HTTPException(status_code=503, detail="GPU out of memory") from e
             logger.error(f"Critique generation failed: {e}")
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=str(e)) from e
         except MemoryError as e:
             logger.error(f"Memory error: {e}")
-            raise HTTPException(status_code=503, detail="Server out of memory")
+            raise HTTPException(status_code=503, detail="Server out of memory") from e
 
 
 @app.post("/critique/batch", response_model=BatchCritiqueResponse)

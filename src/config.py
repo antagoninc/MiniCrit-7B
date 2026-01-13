@@ -140,7 +140,7 @@ def _parse_yaml(yaml_path: Path) -> dict[str, Any]:
     if not yaml_path.exists():
         raise FileNotFoundError(f"Config file not found: {yaml_path}")
 
-    with open(yaml_path, "r") as f:
+    with open(yaml_path) as f:
         try:
             config_dict = yaml.safe_load(f) or {}
         except yaml.YAMLError as e:

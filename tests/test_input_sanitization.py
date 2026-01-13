@@ -22,13 +22,12 @@ control characters, and malicious content.
 import pytest
 
 from src.mcp.core import (
+    DOMAINS,
+    InputSanitizationError,
     InputSanitizer,
     InvalidInputError,
-    InputSanitizationError,
     get_input_sanitizer,
-    DOMAINS,
 )
-
 
 # ================================================================
 # InputSanitizer Basic Tests

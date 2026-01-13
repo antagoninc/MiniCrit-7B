@@ -5,14 +5,15 @@ Antagon Inc. | CAGE: 17E75
 
 import threading
 import time
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from src.rate_limiting import (
-    InMemoryRateLimiter,
-    RedisRateLimiter,
     FallbackRateLimiter,
+    InMemoryRateLimiter,
     RateLimitExceeded,
+    RedisRateLimiter,
     get_rate_limiter,
     reset_rate_limiter,
 )
@@ -205,6 +206,7 @@ class TestRedisRateLimiter:
         with patch.dict("sys.modules", {"redis": mock_redis_module}):
             # Need to reimport to pick up the mock
             from importlib import reload
+
             import src.rate_limiting as rl
 
             reload(rl)
@@ -224,6 +226,7 @@ class TestRedisRateLimiter:
 
         with patch.dict("sys.modules", {"redis": mock_redis_module}):
             from importlib import reload
+
             import src.rate_limiting as rl
 
             reload(rl)

@@ -16,13 +16,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # These imports may fail due to module organization issues (src.training package vs src/training.py)
 # Use training_utils.py which has the standalone functions
+from src.data import validate_dataset
 from training_utils import (
     find_columns,
     find_latest_checkpoint,
     get_config,
     parse_args,
 )
-from src.data import validate_dataset
 
 
 class TestParseArgs:

@@ -18,7 +18,7 @@ Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
 # ANTAGON-MINICRIT: Standard library imports
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
 # ANTAGON-MINICRIT: Third-party imports
@@ -158,8 +158,9 @@ class TestMiniCritChat:
 
     def test_message_conversion(self):
         """L2-DOCSTRING: Test message conversion to API format."""
+        from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
         from langchain_minicrit import MiniCritChat
-        from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
         antagon_chat = MiniCritChat()
         antagon_messages = [
@@ -177,9 +178,10 @@ class TestMiniCritChat:
 
     def test_generate_returns_chat_result(self, antagon_mock_response):
         """L2-DOCSTRING: Test _generate returns ChatResult."""
-        from langchain_minicrit import MiniCritChat
         from langchain_core.messages import HumanMessage
         from langchain_core.outputs import ChatResult
+
+        from langchain_minicrit import MiniCritChat
 
         with patch.object(MiniCritChat, "_antagon_make_request") as mock_request:
             mock_request.return_value = antagon_mock_response
@@ -212,7 +214,7 @@ class TestMiniCritValidator:
 
     def test_validator_with_custom_llm(self):
         """L2-DOCSTRING: Test Validator accepts custom LLM."""
-        from langchain_minicrit import MiniCritValidator, MiniCritLLM
+        from langchain_minicrit import MiniCritLLM, MiniCritValidator
 
         antagon_llm = MiniCritLLM(model="minicrit-70b")
         antagon_validator = MiniCritValidator(llm=antagon_llm)
@@ -246,8 +248,8 @@ class TestMiniCritValidator:
     def test_flaw_extraction(self):
         """L2-DOCSTRING: Test flaw ID extraction from critique."""
         from langchain_minicrit.validator import (
-            MiniCritValidator,
             AntagonFlawCategory,
+            MiniCritValidator,
         )
 
         antagon_validator = MiniCritValidator()
@@ -264,7 +266,7 @@ class TestMiniCritValidator:
 
     def test_validate_returns_result(self):
         """L2-DOCSTRING: Test validate returns AntagonValidationResult."""
-        from langchain_minicrit import MiniCritValidator, MiniCritLLM
+        from langchain_minicrit import MiniCritLLM, MiniCritValidator
         from langchain_minicrit.validator import AntagonValidationResult
 
         with patch.object(MiniCritLLM, "invoke") as mock_invoke:
@@ -280,7 +282,7 @@ class TestMiniCritValidator:
 
     def test_validate_is_valid_threshold(self):
         """L2-DOCSTRING: Test is_valid respects threshold."""
-        from langchain_minicrit import MiniCritValidator, MiniCritLLM
+        from langchain_minicrit import MiniCritLLM, MiniCritValidator
 
         with patch.object(MiniCritLLM, "invoke") as mock_invoke:
             # ANTAGON-MINICRIT: Critique that should score below threshold
@@ -311,7 +313,7 @@ class TestMiniCritValidationChain:
 
     def test_chain_invoke(self):
         """L2-DOCSTRING: Test chain invoke method."""
-        from langchain_minicrit import MiniCritValidationChain, MiniCritLLM
+        from langchain_minicrit import MiniCritLLM, MiniCritValidationChain
         from langchain_minicrit.validator import AntagonValidationResult
 
         with patch.object(MiniCritLLM, "invoke") as mock_invoke:
@@ -358,8 +360,9 @@ class TestMiniCritCallbackHandler:
 
     def test_on_llm_end_updates_stats(self):
         """L2-DOCSTRING: Test on_llm_end updates statistics."""
+        from langchain_core.outputs import Generation, LLMResult
+
         from langchain_minicrit import MiniCritCallbackHandler
-        from langchain_core.outputs import LLMResult, Generation
 
         antagon_handler = MiniCritCallbackHandler()
         antagon_run_id = uuid4()
@@ -439,8 +442,9 @@ class TestMiniCritCallbackHandler:
 
     def test_custom_callback_invoked(self):
         """L2-DOCSTRING: Test custom on_critique callback is invoked."""
+        from langchain_core.outputs import Generation, LLMResult
+
         from langchain_minicrit import MiniCritCallbackHandler
-        from langchain_core.outputs import LLMResult, Generation
 
         antagon_callback_called = []
 
@@ -478,11 +482,11 @@ class TestPackageImports:
     def test_import_all_components(self):
         """L2-DOCSTRING: Test all components can be imported."""
         from langchain_minicrit import (
-            MiniCritLLM,
-            MiniCritChat,
-            MiniCritValidator,
-            MiniCritValidationChain,
             MiniCritCallbackHandler,
+            MiniCritChat,
+            MiniCritLLM,
+            MiniCritValidationChain,
+            MiniCritValidator,
         )
 
         assert MiniCritLLM is not None

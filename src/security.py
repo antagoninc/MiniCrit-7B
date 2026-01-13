@@ -22,9 +22,10 @@ import os
 import re
 import secrets
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class ValidationResult:
 
     valid: bool
     errors: list[str] = field(default_factory=list)
-    sanitized_input: Optional[str] = None
+    sanitized_input: str | None = None
 
 
 class InputValidator:
@@ -136,9 +137,9 @@ class APIKey:
     key_hash: str
     name: str
     created_at: float
-    expires_at: Optional[float] = None
+    expires_at: float | None = None
     scopes: list[str] = field(default_factory=list)
-    rate_limit: Optional[int] = None
+    rate_limit: int | None = None
 
 
 class APIKeyManager:
@@ -164,9 +165,9 @@ class APIKeyManager:
         self,
         key: str,
         name: str,
-        expires_in_days: Optional[int] = None,
-        scopes: Optional[list[str]] = None,
-        rate_limit: Optional[int] = None,
+        expires_in_days: int | None = None,
+        scopes: list[str] | None = None,
+        rate_limit: int | None = None,
     ) -> APIKey:
         """Add an API key."""
         key_id = hashlib.sha256(key.encode()).hexdigest()[:16]
@@ -188,7 +189,7 @@ class APIKeyManager:
         self._keys[key_id] = api_key
         return api_key
 
-    def validate_key(self, key: str) -> tuple[bool, Optional[APIKey]]:
+    def validate_key(self, key: str) -> tuple[bool, APIKey | None]:
         """Validate an API key."""
         key_id = hashlib.sha256(key.encode()).hexdigest()[:16]
         api_key = self._keys.get(key_id)
@@ -233,12 +234,12 @@ class APIKeyManager:
 class RequestSigner:
     """Sign and verify requests using HMAC."""
 
-    def __init__(self, secret_key: Optional[str] = None) -> None:
+    def __init__(self, secret_key: str | None = None) -> None:
         self._secret_key = secret_key or os.environ.get("MINICRIT_SIGNING_KEY", "")
         if not self._secret_key:
             logger.warning("No signing key configured. Request signing disabled.")
 
-    def sign_request(self, payload: str, timestamp: Optional[float] = None) -> str:
+    def sign_request(self, payload: str, timestamp: float | None = None) -> str:
         """Sign a request payload."""
         if not self._secret_key:
             return ""
@@ -310,10 +311,10 @@ class AuditEvent:
 
     timestamp: float
     event_type: str
-    user_id: Optional[str]
-    ip_address: Optional[str]
+    user_id: str | None
+    ip_address: str | None
     action: str
-    resource: Optional[str]
+    resource: str | None
     status: str
     details: dict[str, Any] = field(default_factory=dict)
 
@@ -341,9 +342,9 @@ class AuditLogger:
     def log_authentication(
         self,
         success: bool,
-        user_id: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        reason: Optional[str] = None,
+        user_id: str | None = None,
+        ip_address: str | None = None,
+        reason: str | None = None,
     ) -> None:
         """Log authentication attempt."""
         event = AuditEvent(
@@ -362,10 +363,10 @@ class AuditLogger:
         self,
         endpoint: str,
         method: str,
-        user_id: Optional[str] = None,
-        ip_address: Optional[str] = None,
+        user_id: str | None = None,
+        ip_address: str | None = None,
         status_code: int = 200,
-        latency_ms: Optional[float] = None,
+        latency_ms: float | None = None,
     ) -> None:
         """Log API call."""
         event = AuditEvent(
@@ -386,7 +387,7 @@ class AuditLogger:
 # ================================================================
 
 
-def require_auth(scopes: Optional[list[str]] = None) -> Callable:
+def require_auth(scopes: list[str] | None = None) -> Callable:
     """Decorator to require authentication for an endpoint."""
     key_manager = APIKeyManager()
     audit_logger = AuditLogger()

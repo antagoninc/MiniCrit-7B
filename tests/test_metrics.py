@@ -3,11 +3,12 @@
 Antagon Inc. | CAGE: 17E75
 """
 
-import time
 import threading
+import time
+
 import pytest
 
-from src.metrics import PrometheusMetrics, track_request, metrics
+from src.metrics import PrometheusMetrics, metrics, track_request
 
 
 class TestPrometheusMetrics:

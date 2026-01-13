@@ -28,9 +28,10 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from functools import wraps
-from typing import Any, Callable, Generator, Optional, TypeVar
+from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
 
@@ -44,14 +45,14 @@ OTEL_SAMPLE_RATE = float(os.environ.get("OTEL_SAMPLE_RATE", "1.0"))
 F = TypeVar("F", bound=Callable[..., Any])
 
 # Global state
-_tracer: Optional[Any] = None
+_tracer: Any | None = None
 _initialized = False
 
 
 class NoOpSpan:
     """No-op span for when tracing is disabled."""
 
-    def __enter__(self) -> "NoOpSpan":
+    def __enter__(self) -> NoOpSpan:
         return self
 
     def __exit__(self, *args: Any) -> None:
@@ -66,7 +67,7 @@ class NoOpSpan:
     def record_exception(self, exception: Exception) -> None:
         pass
 
-    def add_event(self, name: str, attributes: Optional[dict] = None) -> None:
+    def add_event(self, name: str, attributes: dict | None = None) -> None:
         pass
 
     def is_recording(self) -> bool:
@@ -79,7 +80,7 @@ class NoOpTracer:
     def start_as_current_span(
         self,
         name: str,
-        attributes: Optional[dict] = None,
+        attributes: dict | None = None,
         **kwargs: Any,
     ) -> NoOpSpan:
         return NoOpSpan()
@@ -87,17 +88,17 @@ class NoOpTracer:
     def start_span(
         self,
         name: str,
-        attributes: Optional[dict] = None,
+        attributes: dict | None = None,
         **kwargs: Any,
     ) -> NoOpSpan:
         return NoOpSpan()
 
 
 def init_tracing(
-    service_name: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    sample_rate: Optional[float] = None,
-    enabled: Optional[bool] = None,
+    service_name: str | None = None,
+    endpoint: str | None = None,
+    sample_rate: float | None = None,
+    enabled: bool | None = None,
 ) -> bool:
     """Initialize OpenTelemetry tracing.
 
@@ -129,10 +130,10 @@ def init_tracing(
 
     try:
         from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+        from opentelemetry.sdk.resources import SERVICE_NAME, Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-        from opentelemetry.sdk.resources import Resource, SERVICE_NAME
         from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
         # Create resource with service name
@@ -202,7 +203,7 @@ def reset_tracing() -> None:
 @contextmanager
 def trace_span(
     name: str,
-    attributes: Optional[dict[str, Any]] = None,
+    attributes: dict[str, Any] | None = None,
 ) -> Generator[Any, None, None]:
     """Context manager for creating a traced span.
 
@@ -224,8 +225,8 @@ def trace_span(
 
 
 def trace_function(
-    name: Optional[str] = None,
-    attributes: Optional[dict[str, Any]] = None,
+    name: str | None = None,
+    attributes: dict[str, Any] | None = None,
 ) -> Callable[[F], F]:
     """Decorator for tracing function execution.
 
@@ -268,8 +269,8 @@ def trace_function(
 
 
 def trace_async_function(
-    name: Optional[str] = None,
-    attributes: Optional[dict[str, Any]] = None,
+    name: str | None = None,
+    attributes: dict[str, Any] | None = None,
 ) -> Callable[[F], F]:
     """Decorator for tracing async function execution.
 

@@ -5,7 +5,6 @@ Tests cost calculation, budget tracking, and persistence functionality.
 
 from __future__ import annotations
 
-import json
 import sys
 import tempfile
 from datetime import datetime
@@ -15,12 +14,12 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.budget import (
-    CostEntry,
-    BudgetSummary,
-    CostCalculator,
-    BudgetTracker,
-    BudgetExceededError,
     DEFAULT_RATES,
+    BudgetExceededError,
+    BudgetSummary,
+    BudgetTracker,
+    CostCalculator,
+    CostEntry,
     get_tracker,
     set_tracker,
 )
@@ -510,7 +509,7 @@ def run_all_tests() -> bool:
                     method()
                     print(f"PASS: {test_class.__name__}.{method_name}")
                     passed += 1
-                except Exception as e:
+                except Exception:
                     print(f"FAIL: {test_class.__name__}.{method_name}")
                     traceback.print_exc()
                     failed += 1
