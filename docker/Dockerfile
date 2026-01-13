@@ -41,12 +41,12 @@ RUN useradd -m -s /bin/bash minicrit
 WORKDIR /app
 
 # Install Python dependencies
-COPY requirements.txt .
+COPY docker/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
-COPY minicrit_mcp_server_prod.py .
-COPY minicrit_mcp_server.py .
+COPY src/ ./src/
+COPY pyproject.toml .
 
 # Pre-download model (optional - makes container larger but faster startup)
 # Uncomment to bake model into image:
@@ -75,7 +75,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 EXPOSE 8000
 
 # Run server
-CMD ["python", "minicrit_mcp_server_prod.py"]
+CMD ["python", "-m", "src.mcp.server_prod"]
 
 # ================================================================
 # Multi-stage build for smaller image (CPU-only version)
@@ -90,11 +90,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN useradd -m -s /bin/bash minicrit
 WORKDIR /app
 
-COPY requirements-cpu.txt requirements.txt
+COPY docker/requirements-cpu.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY minicrit_mcp_server_prod.py .
-COPY minicrit_mcp_server.py .
+COPY src/ ./src/
+COPY pyproject.toml .
 
 RUN chown -R minicrit:minicrit /app
 USER minicrit
@@ -107,4 +107,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
 
 EXPOSE 8000
 
-CMD ["python", "minicrit_mcp_server_prod.py"]
+CMD ["python", "-m", "src.mcp.server_prod"]
