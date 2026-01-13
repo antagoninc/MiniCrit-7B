@@ -12,7 +12,7 @@
 # ================================================================
 
 # Base image with CUDA support
-FROM nvidia/cuda:12.1-runtime-ubuntu22.04 AS base
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04 AS base
 
 # Build arguments
 ARG PYTHON_VERSION=3.11
