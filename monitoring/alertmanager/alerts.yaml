@@ -1,0 +1,172 @@
+# ================================================================
+# MiniCrit AlertManager Rules
+# Antagon Inc. | CAGE: 17E75 | UEI: KBSGT7CZ4AH3
+# ================================================================
+
+groups:
+  - name: minicrit-availability
+    rules:
+      - alert: MiniCritDown
+        expr: up{job="minicrit"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "MiniCrit instance {{ $labels.instance }} is down"
+          description: "MiniCrit instance {{ $labels.instance }} has been down for more than 1 minute."
+          runbook_url: "https://docs.antagon.ai/runbooks/minicrit-down"
+
+      - alert: MiniCritHighErrorRate
+        expr: |
+          sum(rate(minicrit_requests_total{status=~"5.."}[5m]))
+          / sum(rate(minicrit_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "MiniCrit error rate is above 5%"
+          description: "MiniCrit error rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+          runbook_url: "https://docs.antagon.ai/runbooks/high-error-rate"
+
+      - alert: MiniCritHighLatency
+        expr: |
+          histogram_quantile(0.95, sum(rate(minicrit_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "MiniCrit p95 latency is above 2 seconds"
+          description: "MiniCrit p95 latency is {{ $value | humanizeDuration }} over the last 5 minutes."
+          runbook_url: "https://docs.antagon.ai/runbooks/high-latency"
+
+  - name: minicrit-resources
+    rules:
+      - alert: MiniCritHighMemoryUsage
+        expr: |
+          container_memory_usage_bytes{pod=~"minicrit.*"}
+          / container_spec_memory_limit_bytes{pod=~"minicrit.*"} > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "MiniCrit pod {{ $labels.pod }} memory usage is above 85%"
+          description: "Memory usage is {{ $value | humanizePercentage }} for pod {{ $labels.pod }}."
+          runbook_url: "https://docs.antagon.ai/runbooks/high-memory"
+
+      - alert: MiniCritHighCPUUsage
+        expr: |
+          rate(container_cpu_usage_seconds_total{pod=~"minicrit.*"}[5m])
+          / (container_spec_cpu_quota{pod=~"minicrit.*"} / container_spec_cpu_period{pod=~"minicrit.*"}) > 0.85
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "MiniCrit pod {{ $labels.pod }} CPU usage is above 85%"
+          description: "CPU usage is {{ $value | humanizePercentage }} for pod {{ $labels.pod }}."
+          runbook_url: "https://docs.antagon.ai/runbooks/high-cpu"
+
+      - alert: MiniCritPodRestarting
+        expr: increase(kube_pod_container_status_restarts_total{pod=~"minicrit.*"}[1h]) > 3
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "MiniCrit pod {{ $labels.pod }} is restarting frequently"
+          description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last hour."
+          runbook_url: "https://docs.antagon.ai/runbooks/pod-restarts"
+
+  - name: minicrit-model
+    rules:
+      - alert: MiniCritModelNotLoaded
+        expr: minicrit_model_loaded == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: ml
+        annotations:
+          summary: "MiniCrit model is not loaded"
+          description: "The MiniCrit model has not been loaded for more than 5 minutes."
+          runbook_url: "https://docs.antagon.ai/runbooks/model-not-loaded"
+
+      - alert: MiniCritSlowInference
+        expr: |
+          histogram_quantile(0.95, sum(rate(minicrit_inference_duration_seconds_bucket[5m])) by (le)) > 5
+        for: 5m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "MiniCrit inference is slow"
+          description: "p95 inference latency is {{ $value | humanizeDuration }}."
+          runbook_url: "https://docs.antagon.ai/runbooks/slow-inference"
+
+      - alert: MiniCritGPUMemoryHigh
+        expr: |
+          nvidia_gpu_memory_used_bytes / nvidia_gpu_memory_total_bytes > 0.9
+        for: 10m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "GPU memory usage is above 90%"
+          description: "GPU {{ $labels.gpu }} memory usage is {{ $value | humanizePercentage }}."
+          runbook_url: "https://docs.antagon.ai/runbooks/gpu-memory"
+
+  - name: minicrit-slo
+    rules:
+      - alert: MiniCritSLOAvailabilityBreach
+        expr: |
+          1 - (sum(rate(minicrit_requests_total{status=~"5.."}[30m]))
+          / sum(rate(minicrit_requests_total[30m]))) < 0.999
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "MiniCrit SLO availability breach"
+          description: "Availability is {{ $value | humanizePercentage }}, below 99.9% SLO."
+          runbook_url: "https://docs.antagon.ai/runbooks/slo-breach"
+
+      - alert: MiniCritSLOLatencyBreach
+        expr: |
+          histogram_quantile(0.99, sum(rate(minicrit_request_duration_seconds_bucket[30m])) by (le)) > 3
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "MiniCrit SLO latency breach"
+          description: "p99 latency is {{ $value | humanizeDuration }}, above 3s SLO."
+          runbook_url: "https://docs.antagon.ai/runbooks/slo-breach"
+
+  - name: minicrit-security
+    rules:
+      - alert: MiniCritHighRateLimitHits
+        expr: |
+          sum(rate(minicrit_rate_limit_hits_total[5m])) > 100
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "High rate limit hits detected"
+          description: "{{ $value }} rate limit hits per second over the last 5 minutes."
+          runbook_url: "https://docs.antagon.ai/runbooks/rate-limiting"
+
+      - alert: MiniCritAuthFailures
+        expr: |
+          sum(rate(minicrit_auth_failures_total[5m])) > 10
+        for: 5m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "High authentication failure rate"
+          description: "{{ $value }} auth failures per second. Possible brute force attempt."
+          runbook_url: "https://docs.antagon.ai/runbooks/auth-failures"
