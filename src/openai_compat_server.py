@@ -243,7 +243,7 @@ def antagon_load_model() -> None:
 
             antagon_logger.info(f"Loading LoRA adapter from: {antagon_adapter_path}")
             antagon_model = PeftModel.from_pretrained(antagon_model, antagon_adapter_path)  # type: ignore[assignment]
-            antagon_model = antagon_model.merge_and_unload()  # type: ignore[union-attr]
+            antagon_model = antagon_model.merge_and_unload()  # type: ignore[union-attr,operator]
             antagon_logger.info("LoRA adapter loaded and merged (Antagon)")
         except FileNotFoundError:
             antagon_logger.warning("Adapter not found, using base model")

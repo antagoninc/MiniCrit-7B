@@ -132,7 +132,7 @@ def _parse_yaml(yaml_path: Path) -> dict[str, Any]:
         ValueError: If the YAML file is malformed.
     """
     try:
-        import yaml
+        import yaml  # type: ignore[import-untyped]
     except ImportError:
         logger.warning("PyYAML not installed, using empty config from file")
         return {}
