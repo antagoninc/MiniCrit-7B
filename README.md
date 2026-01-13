@@ -175,17 +175,106 @@ MiniCrit implements the **Model Context Protocol** (MCP)—the industry standard
    Safer AI Decisions
 ```
 
+### MCP Server Options
+
+| Server | Use Case | Command |
+|--------|----------|---------|
+| `server.py` | Claude Desktop / Claude Code (stdio) | `python -m src.mcp.server` |
+| `server_http.py` | Basic HTTP API | `python -m src.mcp.server_http` |
+| `server_prod.py` | Production with auth & rate limiting | `python -m src.mcp.server_prod` |
+
+### Claude Desktop Setup
+
+```json
+// ~/Library/Application Support/Claude/claude_desktop_config.json
+{
+  "mcpServers": {
+    "minicrit": {
+      "command": "python3",
+      "args": ["-m", "src.mcp.server"],
+      "cwd": "/path/to/MiniCrit-7B",
+      "env": {
+        "MINICRIT_ADAPTER": "wmaousley/MiniCrit-7B",
+        "MINICRIT_BASE_MODEL": "Qwen/Qwen2-7B-Instruct",
+        "MINICRIT_PRELOAD": "true"
+      }
+    }
+  }
+}
+```
+
+### Production HTTP Server
+
+```bash
+# Start with API key authentication
+export MINICRIT_API_KEYS="key1,key2,key3"
+export MINICRIT_RATE_LIMIT=60  # requests per minute
+python -m src.mcp.server_prod
+
+# Or with gunicorn for production
+gunicorn src.mcp.server_prod:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000
+```
+
+**Production endpoints:**
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check (no auth) |
+| `/info` | GET | Server info and rate limits |
+| `/validate` | POST | Validate single reasoning |
+| `/batch` | POST | Batch validate (up to 100 items) |
+| `/sse` | GET | MCP Server-Sent Events stream |
+| `/admin/keys` | POST | Create API key (admin only) |
+| `/admin/audit` | GET | View audit log (admin only) |
+| `/admin/stats` | GET | Usage statistics (admin only) |
+
 ### MCP Tools
 
 | Tool | Description |
 |------|-------------|
 | `validate_reasoning` | Validate AI reasoning, returns critique with severity |
-| `batch_validate` | Validate multiple items efficiently |
-| `get_model_info` | Get model status and configuration |
+| `batch_validate` | Validate multiple items efficiently (max 100) |
+| `get_model_info` | Get model status, device, and statistics |
+
+### Programmatic Usage
+
+```python
+from src.mcp import (
+    ModelManager,
+    CritiqueGenerator,
+    CritiqueResult,
+    InputSanitizer,
+    get_model_manager,
+    get_critique_generator,
+)
+
+# Singleton model manager (thread-safe)
+manager = ModelManager.get_instance()
+
+# Generate critiques
+generator = CritiqueGenerator(manager)
+result = generator.generate(
+    rationale="AAPL will rise because momentum is positive",
+    domain="trading",
+    context="Portfolio allocation decision"
+)
+
+print(result.valid)       # False
+print(result.severity)    # "high"
+print(result.critique)    # "This reasoning exhibits..."
+print(result.flags)       # ["overconfidence", "insufficient_evidence"]
+print(result.latency_ms)  # 42.3
+
+# Async version
+result = await generator.generate_async(
+    rationale="Buy signal based on MACD crossover",
+    domain="trading"
+)
+```
 
 ### Supported Domains
 
-`trading` • `finance` • `defense` • `cybersecurity` • `medical` • `risk_assessment` • `planning` • `general`
+`trading` • `finance` • `defense` • `cybersecurity` • `medical` • `risk_assessment` • `resource_allocation` • `planning_scheduling` • `general`
 
 ### Output Format
 
@@ -196,11 +285,20 @@ MiniCrit implements the **Model Context Protocol** (MCP)—the industry standard
   "critique": "This reasoning exhibits recency bias. A single day's price movement has no predictive power...",
   "confidence": 0.87,
   "flags": ["overconfidence", "insufficient_evidence", "missing_consideration"],
-  "latency_ms": 42.3
+  "domain": "trading",
+  "latency_ms": 42.3,
+  "request_id": "req_abc123"
 }
 ```
 
 **Severity Levels:** `pass` → `low` → `medium` → `high` → `critical`
+
+**Common Flags:**
+- `overconfidence` - Certainty without sufficient evidence
+- `missing_consideration` - Key factors not addressed
+- `logical_inconsistency` - Contradictions in reasoning
+- `insufficient_evidence` - Claims lack support
+- `unaddressed_risk` - Potential risks not considered
 
 ---
 
@@ -511,8 +609,9 @@ See [docs/MODEL_EXCELLENCE_GUIDE.md](docs/MODEL_EXCELLENCE_GUIDE.md) for the ful
 MiniCrit-7B/
 ├── src/
 │   ├── mcp/                    # MCP Server Implementation
+│   │   ├── core.py             # Thread-safe ModelManager, CritiqueGenerator
 │   │   ├── server.py           # Local stdio (Claude Desktop)
-│   │   ├── server_prod.py      # Production HTTP + auth
+│   │   ├── server_prod.py      # Production HTTP + auth + rate limiting
 │   │   └── server_http.py      # Basic HTTP server
 │   ├── benchmark/              # Model Evaluation
 │   │   └── benchmark_models.py
@@ -599,14 +698,39 @@ See [docs/DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) for complete instructio
 
 ### Environment Variables
 
+**Model Configuration:**
+
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MINICRIT_ADAPTER` | `wmaousley/MiniCrit-7B` | HuggingFace adapter path |
 | `MINICRIT_BASE_MODEL` | `Qwen/Qwen2-7B-Instruct` | Base model path |
-| `MINICRIT_QUANTIZATION` | `none` | Quantization mode: `none`, `8bit`, `4bit` |
-| `MINICRIT_TIMEOUT` | `30.0` | Inference timeout in seconds |
-| `MINICRIT_API_KEYS` | - | Comma-separated API keys (production) |
-| `MINICRIT_CORS_ORIGINS` | `*` | CORS allowed origins (production) |
+| `MINICRIT_DEVICE` | `auto` | Device: `auto`, `cuda`, `mps`, `cpu` |
+| `MINICRIT_QUANTIZATION` | `none` | Quantization: `none`, `8bit`, `4bit` |
+| `MINICRIT_MAX_LENGTH` | `512` | Max input sequence length |
+| `MINICRIT_INFERENCE_TIMEOUT` | `120` | Inference timeout in seconds |
+| `MINICRIT_PRELOAD` | `false` | Preload model on server startup |
+| `MINICRIT_LOG_LEVEL` | `INFO` | Logging level |
+
+**Production Server (`server_prod.py`):**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MINICRIT_PORT` | `8000` | Server port |
+| `MINICRIT_API_KEYS` | - | Comma-separated valid API keys |
+| `MINICRIT_MASTER_KEY` | (random) | Admin master key |
+| `MINICRIT_RATE_LIMIT` | `60` | Requests per minute per key |
+| `MINICRIT_CORS_ORIGINS` | `localhost:3000,8080` | Allowed CORS origins |
+| `MINICRIT_LOG_REQUESTS` | `true` | Log all requests |
+| `REDIS_URL` | - | Redis URL for distributed rate limiting |
+
+**Rate Limit Tiers:**
+
+| Tier | Requests/Min | Description |
+|------|-------------|-------------|
+| `free` | 10 | Anonymous/unauthenticated |
+| `standard` | 60 | Default API key tier |
+| `premium` | 300 | Premium API keys |
+| `admin` | 1000 | Master key |
 
 ### 8-bit / 4-bit Quantization
 
