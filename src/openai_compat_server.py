@@ -114,7 +114,7 @@ class ChatCompletionRequest(BaseModel):
     """L2-DOCSTRING: OpenAI-compatible chat completion request (Antagon MiniCrit)."""
 
     model: str = Field(default=antagon_default_model, description="Model ID")
-    messages: list[ChatMessage] = Field(..., description="Conversation messages")
+    messages: list[ChatMessage] = Field(..., min_length=1, description="Conversation messages")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0, description="Sampling temperature")
     top_p: float = Field(default=1.0, ge=0.0, le=1.0, description="Nucleus sampling parameter")
     max_tokens: int | None = Field(default=512, ge=1, le=4096, description="Max tokens to generate")
