@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: minicrit
+  labels:
+    app.kubernetes.io/name: minicrit
+    app.kubernetes.io/part-of: minicrit

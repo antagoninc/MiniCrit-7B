@@ -1,0 +1,27 @@
+apiVersion: v2
+name: minicrit
+description: MiniCrit - Adversarial AI Validation for Autonomous Systems
+type: application
+version: 0.1.0
+appVersion: "0.1.1"
+
+home: https://github.com/antagoninc/MiniCrit-7B
+sources:
+  - https://github.com/antagoninc/MiniCrit-7B
+
+maintainers:
+  - name: Antagon Inc.
+    email: founders@antagon.ai
+    url: https://antagon.ai
+
+keywords:
+  - ai
+  - ml
+  - validation
+  - adversarial
+  - reasoning
+  - llm
+
+annotations:
+  category: AI/ML
+  licenses: Apache-2.0

@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minicrit
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+        - name: minicrit
+          resources:
+            requests:
+              memory: "8Gi"
+              cpu: "4"
+            limits:
+              memory: "32Gi"
+              cpu: "16"
+              nvidia.com/gpu: "1"
+          env:
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu

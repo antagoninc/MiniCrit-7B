@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: minicrit
+  namespace: minicrit
+  labels:
+    app.kubernetes.io/name: minicrit
+    app.kubernetes.io/component: availability
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: minicrit
+      app.kubernetes.io/component: server
