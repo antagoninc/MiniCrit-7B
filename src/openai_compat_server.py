@@ -542,7 +542,7 @@ async def antagon_get_model(model_id: str) -> ModelInfo:
     return ModelInfo(id=model_id, owned_by="antagon-inc")
 
 
-@antagon_app.post("/v1/chat/completions")
+@antagon_app.post("/v1/chat/completions", response_model=None)
 async def antagon_chat_completions(
     request: ChatCompletionRequest,
 ) -> ChatCompletionResponse | StreamingResponse:
