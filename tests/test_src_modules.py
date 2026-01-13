@@ -11,13 +11,17 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import pandas as pd
 
 from src.config import TrainingConfig, LoRAConfig, load_config
 from src.data import find_columns, validate_dataset
-from src.training import find_latest_checkpoint
+# Note: find_latest_checkpoint is in src/training.py (file), not src/training/ (package)
+# Import from the correct module - training_utils.py in root has the function
+from training_utils import find_latest_checkpoint
 
 
 class TestTrainingConfig:

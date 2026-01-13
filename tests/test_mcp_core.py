@@ -86,9 +86,9 @@ class TestModelManager:
         stats2 = manager.stats
         assert stats2["total_requests"] == 0
 
-    @patch("src.mcp.core.AutoModelForCausalLM")
-    @patch("src.mcp.core.AutoTokenizer")
-    @patch("src.mcp.core.PeftModel")
+    @patch("transformers.AutoModelForCausalLM")
+    @patch("transformers.AutoTokenizer")
+    @patch("peft.PeftModel")
     def test_get_model_loads_on_first_call(self, mock_peft, mock_tokenizer, mock_model):
         """Test that get_model loads model on first call."""
         ModelManager._instance = None
@@ -107,9 +107,9 @@ class TestModelManager:
         assert tokenizer is not None
         assert manager.is_loaded is True
 
-    @patch("src.mcp.core.AutoModelForCausalLM")
-    @patch("src.mcp.core.AutoTokenizer")
-    @patch("src.mcp.core.PeftModel")
+    @patch("transformers.AutoModelForCausalLM")
+    @patch("transformers.AutoTokenizer")
+    @patch("peft.PeftModel")
     def test_get_model_returns_cached(self, mock_peft, mock_tokenizer, mock_model):
         """Test that subsequent calls return cached model."""
         ModelManager._instance = None
@@ -138,8 +138,8 @@ class TestModelManager:
                 with pytest.raises(ModelLoadError, match="Missing dependency"):
                     manager.get_model()
 
-    @patch("src.mcp.core.AutoModelForCausalLM")
-    @patch("src.mcp.core.AutoTokenizer")
+    @patch("transformers.AutoModelForCausalLM")
+    @patch("transformers.AutoTokenizer")
     def test_unload_clears_model(self, mock_tokenizer, mock_model):
         """Test that unload clears model and tokenizer."""
         ModelManager._instance = None
@@ -163,9 +163,9 @@ class TestModelManagerAsync:
     """Async tests for ModelManager."""
 
     @pytest.mark.asyncio
-    @patch("src.mcp.core.AutoModelForCausalLM")
-    @patch("src.mcp.core.AutoTokenizer")
-    @patch("src.mcp.core.PeftModel")
+    @patch("transformers.AutoModelForCausalLM")
+    @patch("transformers.AutoTokenizer")
+    @patch("peft.PeftModel")
     async def test_get_model_async(self, mock_peft, mock_tokenizer, mock_model):
         """Test async model loading."""
         ModelManager._instance = None
@@ -183,9 +183,9 @@ class TestModelManagerAsync:
         assert tokenizer is not None
 
     @pytest.mark.asyncio
-    @patch("src.mcp.core.AutoModelForCausalLM")
-    @patch("src.mcp.core.AutoTokenizer")
-    @patch("src.mcp.core.PeftModel")
+    @patch("transformers.AutoModelForCausalLM")
+    @patch("transformers.AutoTokenizer")
+    @patch("peft.PeftModel")
     async def test_preload_async(self, mock_peft, mock_tokenizer, mock_model):
         """Test async preloading."""
         ModelManager._instance = None
@@ -205,9 +205,9 @@ class TestModelManagerAsync:
 class TestModelManagerThreadSafety:
     """Thread safety tests for ModelManager."""
 
-    @patch("src.mcp.core.AutoModelForCausalLM")
-    @patch("src.mcp.core.AutoTokenizer")
-    @patch("src.mcp.core.PeftModel")
+    @patch("transformers.AutoModelForCausalLM")
+    @patch("transformers.AutoTokenizer")
+    @patch("peft.PeftModel")
     def test_concurrent_get_model_calls(self, mock_peft, mock_tokenizer, mock_model):
         """Test that concurrent get_model calls are safe."""
         ModelManager._instance = None
@@ -334,8 +334,10 @@ class TestCritiqueGenerator:
         """Test parsing low severity."""
         generator = CritiqueGenerator()
 
+        # Use text with only low-severity keywords (minor, slight, small)
+        # without medium-level words (issue, concern, problem, missing)
         severity, flags = generator._parse_critique(
-            "This has only minor issues that are slight"
+            "This has only minor points that are slight adjustments"
         )
 
         assert severity == Severity.LOW
@@ -345,8 +347,9 @@ class TestCritiqueGenerator:
         """Test parsing pass severity."""
         generator = CritiqueGenerator()
 
+        # Use text without any severity keywords or flag-triggering words
         severity, flags = generator._parse_critique(
-            "The reasoning is sound and well-supported"
+            "The reasoning is solid and the conclusions follow logically"
         )
 
         assert severity == Severity.PASS

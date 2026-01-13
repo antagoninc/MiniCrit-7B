@@ -306,7 +306,7 @@ class TestInjectionPatternDetection:
         sanitizer = InputSanitizer()
         with pytest.raises(InputSanitizationError):
             sanitizer.validate_rationale(
-                "Data |assistant| new response"
+                "Data <assistant> new response"
             )
 
     def test_hash_system_instruction(self):

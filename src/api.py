@@ -27,6 +27,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from src.logging_config import setup_logging, get_logger
+from src.metrics import metrics, track_request
 
 # Initialize logging
 setup_logging()
@@ -213,6 +214,7 @@ def load_model(model_path: str | None = None) -> None:
         _model_state["loaded"] = True
         _model_state["load_time"] = datetime.now().isoformat()
         _model_state["model_name"] = base_model
+        metrics.set_model_loaded(True)
 
         logger.info("Model loaded successfully")
 
@@ -325,6 +327,22 @@ async def get_stats() -> StatsResponse:
     )
 
 
+from fastapi.responses import PlainTextResponse
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def prometheus_metrics() -> str:
+    """Expose Prometheus metrics endpoint.
+
+    Returns metrics in Prometheus text format for scraping.
+    Compatible with Prometheus, Grafana, and other monitoring tools.
+
+    Returns:
+        Prometheus text format metrics.
+    """
+    return metrics.get_prometheus_metrics()
+
+
 @app.post("/load")
 async def load_model_endpoint(model_path: str | None = None) -> dict[str, str]:
     """Explicitly load or reload the model."""
@@ -340,42 +358,44 @@ async def create_critique(request: CritiqueRequest) -> CritiqueResponse:
 
     start_time = time.perf_counter()
 
-    try:
-        critique, tokens = generate_critique(
-            rationale=request.rationale,
-            max_tokens=request.max_tokens,
-            temperature=request.temperature,
-            do_sample=request.do_sample,
-        )
+    with track_request("critique"):
+        try:
+            critique, tokens = generate_critique(
+                rationale=request.rationale,
+                max_tokens=request.max_tokens,
+                temperature=request.temperature,
+                do_sample=request.do_sample,
+            )
 
-        latency_ms = (time.perf_counter() - start_time) * 1000
+            latency_ms = (time.perf_counter() - start_time) * 1000
 
-        # Update stats
-        _model_state["request_count"] += 1
-        _model_state["total_tokens_generated"] += tokens
+            # Update stats
+            _model_state["request_count"] += 1
+            _model_state["total_tokens_generated"] += tokens
+            metrics.add_tokens(tokens)
 
-        logger.info(f"Critique generated: {tokens} tokens in {latency_ms:.1f}ms")
+            logger.info(f"Critique generated: {tokens} tokens in {latency_ms:.1f}ms")
 
-        return CritiqueResponse(
-            critique=critique,
-            rationale=request.rationale,
-            tokens_generated=tokens,
-            latency_ms=latency_ms,
-            model_name=_model_state.get("model_name", "unknown"),
-        )
+            return CritiqueResponse(
+                critique=critique,
+                rationale=request.rationale,
+                tokens_generated=tokens,
+                latency_ms=latency_ms,
+                model_name=_model_state.get("model_name", "unknown"),
+            )
 
-    except ValueError as e:
-        logger.warning(f"Invalid input: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-    except RuntimeError as e:
-        if "out of memory" in str(e).lower():
-            logger.error(f"GPU out of memory: {e}")
-            raise HTTPException(status_code=503, detail="GPU out of memory")
-        logger.error(f"Critique generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    except MemoryError as e:
-        logger.error(f"Memory error: {e}")
-        raise HTTPException(status_code=503, detail="Server out of memory")
+        except ValueError as e:
+            logger.warning(f"Invalid input: {e}")
+            raise HTTPException(status_code=400, detail=str(e))
+        except RuntimeError as e:
+            if "out of memory" in str(e).lower():
+                logger.error(f"GPU out of memory: {e}")
+                raise HTTPException(status_code=503, detail="GPU out of memory")
+            logger.error(f"Critique generation failed: {e}")
+            raise HTTPException(status_code=500, detail=str(e))
+        except MemoryError as e:
+            logger.error(f"Memory error: {e}")
+            raise HTTPException(status_code=503, detail="Server out of memory")
 
 
 @app.post("/critique/batch", response_model=BatchCritiqueResponse)

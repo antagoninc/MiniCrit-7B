@@ -333,11 +333,17 @@ class TestRequestValidation:
     """Tests for request validation."""
 
     def test_rationale_not_empty(self) -> None:
-        """Test that empty rationale is handled."""
-        # With mock dataclass, empty string is allowed
-        # With pydantic, it would raise validation error
-        req = CritiqueRequest(rationale="")
-        assert req.rationale == ""
+        """Test that empty rationale is rejected by Pydantic validation."""
+        import pytest
+        try:
+            from pydantic import ValidationError
+            # With pydantic, empty string should raise validation error (min_length=10)
+            with pytest.raises(ValidationError):
+                CritiqueRequest(rationale="")
+        except ImportError:
+            # With mock dataclass, empty string is allowed
+            req = CritiqueRequest(rationale="")
+            assert req.rationale == ""
 
     def test_very_long_rationale(self) -> None:
         """Test handling of long rationale."""
@@ -360,10 +366,17 @@ class TestBatchValidation:
     """Tests for batch request validation."""
 
     def test_empty_batch(self) -> None:
-        """Test empty batch handling."""
-        # With mock dataclass, empty list is allowed
-        req = BatchCritiqueRequest(rationales=[])
-        assert req.rationales == []
+        """Test empty batch is rejected by Pydantic validation."""
+        import pytest
+        try:
+            from pydantic import ValidationError
+            # With pydantic, empty list should raise validation error (min_length=1)
+            with pytest.raises(ValidationError):
+                BatchCritiqueRequest(rationales=[])
+        except ImportError:
+            # With mock dataclass, empty list is allowed
+            req = BatchCritiqueRequest(rationales=[])
+            assert req.rationales == []
 
     def test_large_batch(self) -> None:
         """Test batch size limits."""
