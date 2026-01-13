@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://pypi.org/project/minicrit/"><img src="https://img.shields.io/pypi/v/minicrit?color=blue&label=PyPI" alt="PyPI"></a>
   <a href="https://huggingface.co/wmaousley/MiniCrit-7B"><img src="https://img.shields.io/badge/🤗%20HuggingFace-MiniCrit--7B-blue" alt="HuggingFace"></a>
-  <a href="https://github.com/antagoninc/MiniCrit-7B/actions"><img src="https://img.shields.io/badge/Tests-169%20Passing-brightgreen" alt="Tests"></a>
+  <a href="https://github.com/antagoninc/MiniCrit-7B/actions"><img src="https://img.shields.io/badge/Tests-489%20Passing-brightgreen" alt="Tests"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-red" alt="License"></a>
   <a href="https://modelcontextprotocol.io"><img src="https://img.shields.io/badge/MCP-Compatible-purple" alt="MCP"></a>
 </p>
@@ -19,7 +19,8 @@
 <p align="center">
   <a href="#quick-start">Quick Start</a> •
   <a href="#mcp-integration">MCP Integration</a> •
-  <a href="#api-usage">API</a> •
+  <a href="#openai-compatible-api">OpenAI API</a> •
+  <a href="#langchain-integration">LangChain</a> •
   <a href="#training">Training</a> •
   <a href="#benchmarks">Benchmarks</a>
 </p>
@@ -200,6 +201,134 @@ MiniCrit implements the **Model Context Protocol** (MCP)—the industry standard
 ```
 
 **Severity Levels:** `pass` → `low` → `medium` → `high` → `critical`
+
+---
+
+## 🌐 OpenAI-Compatible API
+
+MiniCrit provides an OpenAI-compatible API server, allowing drop-in replacement for any OpenAI client:
+
+### Start the Server
+
+```bash
+# Start the OpenAI-compatible server
+python -m src.openai_compat_server
+
+# Or with uvicorn for production
+uvicorn src.openai_compat_server:app --host 0.0.0.0 --port 8080
+```
+
+### Use with Any OpenAI Client
+
+```python
+from openai import OpenAI
+
+# Point to MiniCrit server
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="minicrit"  # Any string works
+)
+
+response = client.chat.completions.create(
+    model="minicrit-7b",
+    messages=[
+        {"role": "user", "content": "AAPL is bullish because momentum is positive"}
+    ],
+    temperature=0.7,
+    max_tokens=512
+)
+
+print(response.choices[0].message.content)
+```
+
+### Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Health check with model status |
+| `GET /v1/models` | List available models |
+| `GET /v1/models/{id}` | Get specific model info |
+| `POST /v1/chat/completions` | Generate critique (streaming supported) |
+
+### Streaming
+
+```python
+# Stream responses
+stream = client.chat.completions.create(
+    model="minicrit-7b",
+    messages=[{"role": "user", "content": "Validate this reasoning..."}],
+    stream=True
+)
+
+for chunk in stream:
+    print(chunk.choices[0].delta.content, end="")
+```
+
+---
+
+## 🦜 LangChain Integration
+
+MiniCrit integrates seamlessly with LangChain for building AI pipelines:
+
+### Installation
+
+```bash
+pip install minicrit langchain-core
+```
+
+### Basic Usage
+
+```python
+from langchain_minicrit import MiniCritLLM, MiniCritChat, MiniCritValidator
+
+# As an LLM
+llm = MiniCritLLM(base_url="http://localhost:8080/v1")
+critique = llm.invoke("Stock will rise due to momentum")
+print(critique)
+
+# As a Chat Model
+from langchain_core.messages import HumanMessage, SystemMessage
+
+chat = MiniCritChat(base_url="http://localhost:8080/v1")
+response = chat.invoke([
+    SystemMessage(content="You are a financial reasoning critic."),
+    HumanMessage(content="Buy AAPL because it went up yesterday")
+])
+print(response.content)
+```
+
+### Validation Chain
+
+```python
+from langchain_minicrit import MiniCritValidator
+
+validator = MiniCritValidator(
+    base_url="http://localhost:8080/v1",
+    threshold=70.0  # Minimum score to pass
+)
+
+result = validator.validate("MACD crossover signals a buy opportunity")
+
+print(f"Valid: {result.is_valid}")
+print(f"Score: {result.score}")
+print(f"Critique: {result.critique}")
+print(f"Flaws: {[f.antagon_flaw_id for f in result.flaws]}")
+```
+
+### In LangChain Pipelines
+
+```python
+from langchain_core.runnables import RunnablePassthrough
+from langchain_minicrit import MiniCritValidationChain
+
+# Create validation chain
+validator = MiniCritValidationChain(threshold=70.0)
+
+# Compose with other runnables
+pipeline = RunnablePassthrough() | validator
+
+result = pipeline.invoke("High confidence trade based on sentiment analysis")
+```
 
 ---
 
@@ -391,12 +520,19 @@ MiniCrit-7B/
 │   │   ├── generate_hard_examples.py
 │   │   ├── generate_dpo_data.py
 │   │   └── train_dpo.py
+│   ├── openai_compat_server.py # OpenAI-compatible API
 │   ├── config.py
 │   ├── data.py
 │   ├── model.py
 │   ├── training.py
 │   ├── evaluation.py
 │   └── api.py
+├── langchain_minicrit/         # LangChain Integration
+│   ├── __init__.py
+│   ├── llm.py                  # LLM wrapper
+│   ├── chat.py                 # Chat model
+│   ├── validator.py            # Validation chain
+│   └── callbacks.py            # Callback handlers
 ├── docker/
 │   ├── Dockerfile
 │   ├── docker-compose.yml
@@ -408,7 +544,7 @@ MiniCrit-7B/
 ├── scripts/
 │   ├── train_vista.slurm
 │   └── vista_setup.sh
-├── tests/                      # 169 tests
+├── tests/                      # 489 tests
 ├── docs/
 │   ├── DEPLOYMENT_GUIDE.md
 │   └── MODEL_EXCELLENCE_GUIDE.md
