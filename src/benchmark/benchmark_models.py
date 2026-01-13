@@ -176,12 +176,11 @@ class ModelLoader:
         prompt = f"### Domain: {domain}\n### Rationale:\n{input_text}\n\n### Critique:\n"
 
         # Tokenize
+        # fmt: off
         inputs = self.tokenizer(  # type: ignore[misc]
-            prompt,
-            return_tensors="pt",
-            truncation=True,
-            max_length=MAX_LENGTH,
+            prompt, return_tensors="pt", truncation=True, max_length=MAX_LENGTH,
         ).to(self.model.device)  # type: ignore[union-attr,attr-defined]
+        # fmt: on
 
         input_len = inputs["input_ids"].shape[1]
 
