@@ -70,6 +70,16 @@ server = [
     "uvicorn>=0.27.0",
     "python-jose>=3.3.0",
 ]
+redis = [
+    "redis>=5.0.0",
+]
+observability = [
+    "opentelemetry-api>=1.20.0",
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp>=1.20.0",
+    "opentelemetry-instrumentation-fastapi>=0.41b0",
+    "opentelemetry-instrumentation-httpx>=0.41b0",
+]
 training = [
     "datasets>=2.16.0",
     "wandb>=0.16.0",
@@ -83,11 +93,12 @@ eval = [
     "numpy>=1.24.0",
 ]
 all = [
-    "minicrit[mcp,server,training,eval]",
+    "minicrit[mcp,server,training,eval,redis,observability]",
 ]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
+    "pytest-asyncio>=0.21.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.0.0",

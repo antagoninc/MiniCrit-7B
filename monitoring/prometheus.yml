@@ -1,0 +1,44 @@
+# MiniCrit Prometheus Configuration
+# Antagon Inc. | CAGE: 17E75
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # MiniCrit API
+  - job_name: "minicrit"
+    static_configs:
+      - targets: ["host.docker.internal:8000"]
+    metrics_path: /metrics
+    scheme: http
+
+  # MiniCrit API (multiple instances)
+  # - job_name: "minicrit-cluster"
+  #   static_configs:
+  #     - targets:
+  #       - "minicrit-1:8000"
+  #       - "minicrit-2:8000"
+  #       - "minicrit-3:8000"
+
+  # Node Exporter (optional - system metrics)
+  # - job_name: "node"
+  #   static_configs:
+  #     - targets: ["node-exporter:9100"]
+
+  # NVIDIA GPU Exporter (optional - GPU metrics)
+  # - job_name: "nvidia"
+  #   static_configs:
+  #     - targets: ["nvidia-exporter:9835"]
