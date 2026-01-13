@@ -344,8 +344,7 @@ class MiniCritValidator:
             }
 
             antagon_category = antagon_category_map.get(
-                antagon_category_code,
-                AntagonFlawCategory.LOGICAL
+                antagon_category_code, AntagonFlawCategory.LOGICAL
             )
 
             antagon_flaw_id = f"{antagon_category_code}{antagon_number}"

@@ -24,6 +24,9 @@ from uuid import uuid4
 # ANTAGON-MINICRIT: Third-party imports
 import pytest
 
+# ANTAGON-MINICRIT: Skip entire module if langchain_core not installed
+pytest.importorskip("langchain_core")
+
 
 # ================================================================
 # L3-SEMANTIC: Test Fixtures

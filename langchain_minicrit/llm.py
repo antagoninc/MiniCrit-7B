@@ -197,9 +197,7 @@ class MiniCritLLM(LLM):
         # ANTAGON-MINICRIT: Build request payload
         antagon_payload = {
             "model": self.antagon_model,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
+            "messages": [{"role": "user", "content": prompt}],
             "temperature": kwargs.get("temperature", self.antagon_temperature),
             "max_tokens": kwargs.get("max_tokens", self.antagon_max_tokens),
             "top_p": kwargs.get("top_p", self.antagon_top_p),
@@ -241,9 +239,7 @@ class MiniCritLLM(LLM):
         # ANTAGON-MINICRIT: Build streaming request payload
         antagon_payload = {
             "model": self.antagon_model,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
+            "messages": [{"role": "user", "content": prompt}],
             "temperature": kwargs.get("temperature", self.antagon_temperature),
             "max_tokens": kwargs.get("max_tokens", self.antagon_max_tokens),
             "top_p": kwargs.get("top_p", self.antagon_top_p),
@@ -291,10 +287,7 @@ class MiniCritLLM(LLM):
             antagon_response.raise_for_status()
             return antagon_response.json()
 
-    def _antagon_stream_request(
-        self,
-        payload: dict[str, Any]
-    ) -> Iterator[str]:
+    def _antagon_stream_request(self, payload: dict[str, Any]) -> Iterator[str]:
         """
         L2-DOCSTRING: Stream HTTP request to MiniCrit API.
 
@@ -323,7 +316,9 @@ class MiniCritLLM(LLM):
                             break
                         try:
                             antagon_chunk = json.loads(antagon_data)
-                            antagon_content = antagon_chunk["choices"][0]["delta"].get("content", "")
+                            antagon_content = antagon_chunk["choices"][0]["delta"].get(
+                                "content", ""
+                            )
                             if antagon_content:
                                 yield antagon_content
                         except json.JSONDecodeError:
@@ -353,7 +348,9 @@ class MiniCritLLM(LLM):
                                 break
                             try:
                                 antagon_chunk = json.loads(antagon_data)
-                                antagon_content = antagon_chunk["choices"][0]["delta"].get("content", "")
+                                antagon_content = antagon_chunk["choices"][0]["delta"].get(
+                                    "content", ""
+                                )
                                 if antagon_content:
                                     yield antagon_content
                             except json.JSONDecodeError:

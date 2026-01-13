@@ -36,6 +36,7 @@ from fastapi.testclient import TestClient
 def antagon_test_client():
     """L2-DOCSTRING: Create test client for API (Antagon)."""
     from src.openai_compat_server import app
+
     return TestClient(app)
 
 
@@ -167,9 +168,7 @@ class TestChatCompletionsEndpoint:
 
             antagon_payload = {
                 "model": "minicrit-7b",
-                "messages": [
-                    {"role": "user", "content": "Test reasoning"}
-                ],
+                "messages": [{"role": "user", "content": "Test reasoning"}],
                 "temperature": 0.7,
                 "max_tokens": 256,
             }
@@ -187,9 +186,7 @@ class TestChatCompletionsEndpoint:
 
             antagon_payload = {
                 "model": "minicrit-7b",
-                "messages": [
-                    {"role": "user", "content": "Test reasoning"}
-                ],
+                "messages": [{"role": "user", "content": "Test reasoning"}],
             }
             antagon_response = antagon_test_client.post(
                 "/v1/chat/completions",

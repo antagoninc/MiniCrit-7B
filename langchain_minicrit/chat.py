@@ -178,10 +178,7 @@ class MiniCritChat(BaseChatModel):
             "provider": "antagon-inc",
         }
 
-    def _antagon_convert_messages(
-        self,
-        messages: List[BaseMessage]
-    ) -> List[dict[str, str]]:
+    def _antagon_convert_messages(self, messages: List[BaseMessage]) -> List[dict[str, str]]:
         """
         L2-DOCSTRING: Convert LangChain messages to OpenAI format.
 
@@ -197,26 +194,34 @@ class MiniCritChat(BaseChatModel):
 
         for antagon_msg in messages:
             if isinstance(antagon_msg, SystemMessage):
-                antagon_converted.append({
-                    "role": "system",
-                    "content": antagon_msg.content,
-                })
+                antagon_converted.append(
+                    {
+                        "role": "system",
+                        "content": antagon_msg.content,
+                    }
+                )
             elif isinstance(antagon_msg, HumanMessage):
-                antagon_converted.append({
-                    "role": "user",
-                    "content": antagon_msg.content,
-                })
+                antagon_converted.append(
+                    {
+                        "role": "user",
+                        "content": antagon_msg.content,
+                    }
+                )
             elif isinstance(antagon_msg, AIMessage):
-                antagon_converted.append({
-                    "role": "assistant",
-                    "content": antagon_msg.content,
-                })
+                antagon_converted.append(
+                    {
+                        "role": "assistant",
+                        "content": antagon_msg.content,
+                    }
+                )
             else:
                 # ANTAGON-MINICRIT: Default to user role for unknown types
-                antagon_converted.append({
-                    "role": "user",
-                    "content": str(antagon_msg.content),
-                })
+                antagon_converted.append(
+                    {
+                        "role": "user",
+                        "content": str(antagon_msg.content),
+                    }
+                )
 
         return antagon_converted
 
@@ -361,10 +366,7 @@ class MiniCritChat(BaseChatModel):
             antagon_response.raise_for_status()
             return antagon_response.json()
 
-    def _antagon_stream_request(
-        self,
-        payload: dict[str, Any]
-    ) -> Iterator[str]:
+    def _antagon_stream_request(self, payload: dict[str, Any]) -> Iterator[str]:
         """
         L2-DOCSTRING: Stream HTTP request to MiniCrit API.
 
@@ -393,7 +395,9 @@ class MiniCritChat(BaseChatModel):
                             break
                         try:
                             antagon_chunk = json.loads(antagon_data)
-                            antagon_content = antagon_chunk["choices"][0]["delta"].get("content", "")
+                            antagon_content = antagon_chunk["choices"][0]["delta"].get(
+                                "content", ""
+                            )
                             if antagon_content:
                                 yield antagon_content
                         except json.JSONDecodeError:
@@ -423,7 +427,9 @@ class MiniCritChat(BaseChatModel):
                                 break
                             try:
                                 antagon_chunk = json.loads(antagon_data)
-                                antagon_content = antagon_chunk["choices"][0]["delta"].get("content", "")
+                                antagon_content = antagon_chunk["choices"][0]["delta"].get(
+                                    "content", ""
+                                )
                                 if antagon_content:
                                     yield antagon_content
                             except json.JSONDecodeError:

@@ -66,14 +66,15 @@ antagon_logger = get_logger(__name__)
 
 antagon_default_model = os.environ.get("MINICRIT_MODEL", "minicrit-7b")
 antagon_base_model_path = os.environ.get("MINICRIT_BASE_MODEL", "Qwen/Qwen2-7B-Instruct")
-antagon_adapter_path = os.environ.get("MINICRIT_ADAPTER_PATH", "minicrit_7b_output/minicrit-7b-final")
+antagon_adapter_path = os.environ.get(
+    "MINICRIT_ADAPTER_PATH", "minicrit_7b_output/minicrit-7b-final"
+)
 antagon_api_host = os.environ.get("MINICRIT_API_HOST", "0.0.0.0")
 antagon_api_port = int(os.environ.get("MINICRIT_API_PORT", "8080"))
 
 # ANTAGON-MINICRIT: CORS configuration
 antagon_cors_origins = os.environ.get(
-    "MINICRIT_CORS_ORIGINS",
-    "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000"
+    "MINICRIT_CORS_ORIGINS", "http://localhost:3000,http://localhost:8080,http://127.0.0.1:3000"
 ).split(",")
 
 # ================================================================
@@ -106,9 +107,7 @@ antagon_state = AntagonModelState()
 class ChatMessage(BaseModel):
     """L2-DOCSTRING: Chat message format (OpenAI compatible, Antagon enhanced)."""
 
-    role: Literal["system", "user", "assistant"] = Field(
-        ..., description="Message role"
-    )
+    role: Literal["system", "user", "assistant"] = Field(..., description="Message role")
     content: str = Field(..., description="Message content")
 
 
@@ -224,8 +223,7 @@ def antagon_load_model() -> None:
         # ANTAGON-MINICRIT: Load tokenizer
         antagon_logger.info("Loading tokenizer...")
         antagon_tokenizer = AutoTokenizer.from_pretrained(
-            antagon_base_model_path,
-            trust_remote_code=True
+            antagon_base_model_path, trust_remote_code=True
         )
 
         if antagon_tokenizer.pad_token is None:
@@ -245,8 +243,8 @@ def antagon_load_model() -> None:
             from peft import PeftModel
 
             antagon_logger.info(f"Loading LoRA adapter from: {antagon_adapter_path}")
-            antagon_model = PeftModel.from_pretrained(antagon_model, antagon_adapter_path)
-            antagon_model = antagon_model.merge_and_unload()
+            antagon_model = PeftModel.from_pretrained(antagon_model, antagon_adapter_path)  # type: ignore[assignment]
+            antagon_model = antagon_model.merge_and_unload()  # type: ignore[union-attr]
             antagon_logger.info("LoRA adapter loaded and merged (Antagon)")
         except FileNotFoundError:
             antagon_logger.warning("Adapter not found, using base model")
@@ -352,16 +350,13 @@ def antagon_generate_completion(
     antagon_completion_tokens = antagon_outputs.shape[1] - antagon_prompt_tokens
 
     # ANTAGON-MINICRIT: Decode output
-    antagon_full_output = antagon_tokenizer.decode(
-        antagon_outputs[0],
-        skip_special_tokens=True
-    )
+    antagon_full_output = antagon_tokenizer.decode(antagon_outputs[0], skip_special_tokens=True)
 
     # ANTAGON-MINICRIT: Extract generated portion
     if "### Critique:" in antagon_full_output:
         antagon_generated = antagon_full_output.split("### Critique:")[-1].strip()
     else:
-        antagon_generated = antagon_full_output[len(prompt):].strip()
+        antagon_generated = antagon_full_output[len(prompt) :].strip()
 
     # ANTAGON-MINICRIT: Apply stop sequences
     if stop:
@@ -410,9 +405,7 @@ async def antagon_generate_stream(
 
     # ANTAGON-MINICRIT: Setup streamer
     antagon_streamer = TextIteratorStreamer(
-        antagon_tokenizer,
-        skip_prompt=True,
-        skip_special_tokens=True
+        antagon_tokenizer, skip_prompt=True, skip_special_tokens=True
     )
 
     # ANTAGON-MINICRIT: Generation arguments
@@ -605,7 +598,9 @@ async def antagon_chat_completions(
             )
 
             antagon_latency = (time.perf_counter() - antagon_start_time) * 1000
-            antagon_logger.info(f"Generated {antagon_completion_tokens} tokens in {antagon_latency:.1f}ms")
+            antagon_logger.info(
+                f"Generated {antagon_completion_tokens} tokens in {antagon_latency:.1f}ms"
+            )
 
             # ANTAGON-MINICRIT: Update token counter
             antagon_state.antagon_total_tokens += antagon_completion_tokens
