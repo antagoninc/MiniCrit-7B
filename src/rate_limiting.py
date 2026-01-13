@@ -22,7 +22,7 @@ import os
 import threading
 import time
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +85,15 @@ class BaseRateLimiter(ABC):
 
         Returns:
             Seconds until reset, or 0 if not limited.
+        """
+        pass
+
+    @abstractmethod
+    def get_stats(self) -> dict[str, Any]:
+        """Get rate limiter statistics.
+
+        Returns:
+            Dictionary with backend info and stats.
         """
         pass
 
@@ -160,7 +169,7 @@ class InMemoryRateLimiter(BaseRateLimiter):
             reset_time = oldest + self.window - time.time()
             return max(0, reset_time)
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, Any]:
         """Get rate limiter statistics."""
         with self._lock:
             return {
@@ -189,7 +198,7 @@ class RedisRateLimiter(BaseRateLimiter):
     ):
         super().__init__(limit, window)
         self.key_prefix = key_prefix
-        self._redis: Optional[object] = None
+        self._redis: Any = None
         self._redis_url = redis_url
         self._connect()
 
@@ -293,17 +302,17 @@ class RedisRateLimiter(BaseRateLimiter):
             if not oldest:
                 return 0
 
-            oldest_time = oldest[0][1]
+            oldest_time = float(oldest[0][1])
             reset_time = oldest_time + self.window - time.time()
-            return max(0, reset_time)
+            return float(max(0, reset_time))
 
         except Exception as e:
             logger.error(f"Redis error getting reset time: {e}")
             return 0
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, Any]:
         """Get rate limiter statistics."""
-        stats = {
+        stats: dict[str, Any] = {
             "backend": "redis",
             "connected": self.is_connected,
             "limit": self.limit,
@@ -366,7 +375,7 @@ class FallbackRateLimiter(BaseRateLimiter):
     def get_reset_time(self, key: str) -> float:
         return self._active_limiter.get_reset_time(key)
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, Any]:
         stats = self._active_limiter.get_stats()
         stats["fallback_available"] = True
         return stats
