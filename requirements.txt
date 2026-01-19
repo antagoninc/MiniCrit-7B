@@ -21,7 +21,7 @@ matplotlib>=3.8.0,<4.0.0
 tokenizers>=0.15.0,<1.0.0
 
 # Acceleration
-accelerate>=0.25.0,<1.0.0
+accelerate>=0.25.0,<2.0.0
 
 # Quantization (8-bit and 4-bit inference)
 bitsandbytes>=0.41.0,<1.0.0
